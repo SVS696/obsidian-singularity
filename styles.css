@@ -1,0 +1,203 @@
+/* CSS Variables with defaults */
+:root {
+	--singularity-badge-max-width: 300px;
+}
+
+/* Singularity Task Badge - vertical layout */
+.singularity-task-badge {
+	display: inline-flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 6px 10px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 0.9em;
+	line-height: 1.4;
+	transition: all 0.15s ease;
+	vertical-align: middle;
+	max-width: calc(var(--singularity-badge-max-width) + 150px);
+}
+
+.singularity-task-badge:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Top row: checkbox + title + status */
+.singularity-task-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+}
+
+/* Completion checkbox indicator */
+.singularity-task-checkbox {
+	flex-shrink: 0;
+	width: 18px;
+	height: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 3px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+/* Completed checkbox */
+.singularity-task-completed .singularity-task-checkbox {
+	color: #198754;
+	font-weight: bold;
+}
+
+/* Task title */
+.singularity-task-title {
+	flex: 1;
+	font-weight: 500;
+	color: var(--text-normal);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: var(--singularity-badge-max-width);
+}
+
+/* Status badge (kanban column) */
+.singularity-task-status {
+	flex-shrink: 0;
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 0.75em;
+	font-weight: 600;
+	color: #fff;
+	white-space: nowrap;
+}
+
+.singularity-task-status-error {
+	background: #dc3545 !important;
+}
+
+/* Tags row - below title */
+.singularity-task-tags-row {
+	display: flex;
+	gap: 4px;
+	flex-wrap: wrap;
+	padding-left: 24px; /* Align with title (after checkbox) */
+}
+
+/* Individual tag */
+.singularity-task-tag {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-size: 0.7em;
+	font-weight: 500;
+	background: var(--background-modifier-border);
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+/* Loading state */
+.singularity-task-loading {
+	opacity: 0.7;
+}
+
+.singularity-task-loading .singularity-task-title::before {
+	content: "⏳ ";
+}
+
+/* Error state */
+.singularity-task-error {
+	border-color: #dc3545;
+	background: rgba(220, 53, 69, 0.1);
+}
+
+.singularity-task-error .singularity-task-title::before {
+	content: "⚠️ ";
+}
+
+/* Completed state */
+.singularity-task-completed {
+	opacity: 0.8;
+}
+
+.singularity-task-completed .singularity-task-title {
+	text-decoration: line-through;
+	color: var(--text-muted);
+}
+
+/* Cancelled state */
+.singularity-task-cancelled {
+	opacity: 0.7;
+}
+
+.singularity-task-cancelled .singularity-task-title {
+	text-decoration: line-through;
+	color: var(--text-muted);
+}
+
+.singularity-task-checkbox-cancelled {
+	color: #dc3545 !important;
+	font-weight: bold;
+}
+
+/* Dark theme adjustments */
+.theme-dark .singularity-task-badge {
+	background: var(--background-secondary-alt);
+}
+
+.theme-dark .singularity-task-badge:hover {
+	background: var(--background-modifier-hover);
+}
+
+/* Properties view specific styles */
+.metadata-property-value .singularity-task-badge {
+	margin: 2px 0;
+}
+
+/* Compact mode for frontmatter */
+.metadata-container .singularity-task-badge {
+	padding: 4px 8px;
+	font-size: 0.85em;
+}
+
+.metadata-container .singularity-task-title {
+	max-width: 250px;
+}
+
+/* Live Preview specific */
+.cm-line .singularity-task-badge {
+	margin: 0 2px;
+}
+
+/* Animation for loading */
+@keyframes singularity-pulse {
+	0%, 100% {
+		opacity: 0.7;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+.singularity-task-loading {
+	animation: singularity-pulse 1.5s ease-in-out infinite;
+}
+
+/* Mobile adjustments */
+.is-mobile .singularity-task-badge {
+	padding: 8px 12px;
+	font-size: 1em;
+}
+
+.is-mobile .singularity-task-title {
+	max-width: 200px;
+}
+
+/* Hide tags on mobile to save space */
+.is-mobile .singularity-task-tags-row {
+	display: none;
+}

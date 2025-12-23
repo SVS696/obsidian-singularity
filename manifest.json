@@ -1,0 +1,11 @@
+{
+	"id": "obsidian-singularity",
+	"name": "Singularity App Integration",
+	"version": "1.0.0",
+	"minAppVersion": "1.0.0",
+	"description": "Integrates Singularity App tasks with Obsidian. Renders task links as interactive badges and syncs Obsidian note URLs back to Singularity.",
+	"author": "SVS",
+	"authorUrl": "https://github.com/SVS696",
+	"fundingUrl": "https://github.com/SVS696",
+	"isDesktopOnly": false
+}
