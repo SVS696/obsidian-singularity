@@ -31,6 +31,20 @@ export class SingularitySettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName('Language')
+			.setDesc('Language for task status labels and tooltips')
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption('en', 'English')
+					.addOption('ru', 'Русский')
+					.setValue(this.plugin.settings.language)
+					.onChange(async (value) => {
+						this.plugin.settings.language = value as 'en' | 'ru';
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
 			.setName('Vault Name')
 			.setDesc(
 				'Name of your Obsidian vault for generating obsidian:// URLs. ' +

@@ -28,6 +28,8 @@ async function processElement(
 	// 1. Find all <a> links with singularityapp:// protocol
 	const links = el.querySelectorAll('a[href^="singularityapp://"]');
 
+	const language = plugin.settings.language;
+
 	for (const link of Array.from(links)) {
 		const href = link.getAttribute('href');
 		if (!href) continue;
@@ -36,7 +38,7 @@ async function processElement(
 		if (!taskId) continue;
 
 		// Replace link with badge
-		const badge = createLoadingBadge(taskId);
+		const badge = createLoadingBadge(taskId, language);
 		link.replaceWith(badge);
 
 		// Load task data asynchronously
@@ -99,6 +101,7 @@ function replaceTextNodeWithBadges(
 
 	if (matches.length === 0) return;
 
+	const language = plugin.settings.language;
 	const fragment = document.createDocumentFragment();
 	let lastIndex = 0;
 
@@ -114,7 +117,7 @@ function replaceTextNodeWithBadges(
 		const taskId = extractTaskId(url);
 		if (taskId) {
 			// Create badge for this URL
-			const badge = createLoadingBadge(taskId);
+			const badge = createLoadingBadge(taskId, language);
 			fragment.appendChild(badge);
 			loadTaskData(plugin, badge, taskId, url);
 		} else {
@@ -143,14 +146,15 @@ async function loadTaskData(
 	taskId: string,
 	singularityUrl: string
 ): Promise<void> {
+	const language = plugin.settings.language;
 	try {
 		const taskData = await plugin.cache.getTaskData(taskId);
-		const newBadge = createTaskBadge(taskData, singularityUrl);
+		const newBadge = createTaskBadge(taskData, singularityUrl, language);
 		badge.replaceWith(newBadge);
 	} catch (error) {
 		const errorMessage =
 			error instanceof Error ? error.message : String(error);
-		const errorBadge = createErrorBadge(taskId, errorMessage);
+		const errorBadge = createErrorBadge(taskId, errorMessage, language);
 		badge.replaceWith(errorBadge);
 	}
 }
@@ -196,6 +200,8 @@ async function processPropertiesElement(
 		'.metadata-property-value, .metadata-link-inner'
 	);
 
+	const language = plugin.settings.language;
+
 	for (const valueEl of Array.from(propertyValues)) {
 		const text = valueEl.textContent || '';
 
@@ -207,7 +213,7 @@ async function processPropertiesElement(
 			if (valueEl.querySelector('.singularity-task-badge')) continue;
 
 			// Create and insert badge
-			const badge = createLoadingBadge(taskId);
+			const badge = createLoadingBadge(taskId, language);
 			valueEl.textContent = '';
 			valueEl.appendChild(badge);
 

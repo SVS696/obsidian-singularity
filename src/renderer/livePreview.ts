@@ -31,21 +31,23 @@ class SingularityTaskWidget extends WidgetType {
 		const container = document.createElement('span');
 		container.className = 'singularity-widget-container';
 
+		const language = this.plugin.settings.language;
+
 		// Show loading initially
-		const loadingBadge = createLoadingBadge(this.taskId);
+		const loadingBadge = createLoadingBadge(this.taskId, language);
 		container.appendChild(loadingBadge);
 
 		// Load data and update DOM
 		this.plugin.cache.getTaskData(this.taskId)
 			.then((taskData) => {
 				container.empty();
-				const badge = createTaskBadge(taskData, this.singularityUrl);
+				const badge = createTaskBadge(taskData, this.singularityUrl, language);
 				container.appendChild(badge);
 			})
 			.catch((err) => {
 				container.empty();
 				const errorMessage = err instanceof Error ? err.message : String(err);
-				const errorBadge = createErrorBadge(this.taskId, errorMessage);
+				const errorBadge = createErrorBadge(this.taskId, errorMessage, language);
 				container.appendChild(errorBadge);
 			});
 

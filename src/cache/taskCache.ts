@@ -3,24 +3,34 @@ import type {
 	SingularityTag,
 	KanbanStatus,
 	CacheEntry,
+	Language,
 } from '../types';
 import { SingularityAPI } from '../api/singularity';
+import { LOCALES } from '../types';
 
 export class TaskCache {
 	private api: SingularityAPI;
 	private cacheTTL: number; // minutes
+	private language: Language;
 
 	private taskCache: Map<string, CacheEntry<TaskData>> = new Map();
 	private kanbanCache: Map<string, CacheEntry<KanbanStatus[]>> = new Map();
 	private tagsCache: CacheEntry<SingularityTag[]> | null = null;
 
-	constructor(api: SingularityAPI, cacheTTL: number = 5) {
+	constructor(api: SingularityAPI, cacheTTL: number = 5, language: Language = 'en') {
 		this.api = api;
 		this.cacheTTL = cacheTTL;
+		this.language = language;
 	}
 
 	setCacheTTL(ttl: number): void {
 		this.cacheTTL = ttl;
+	}
+
+	setLanguage(language: Language): void {
+		this.language = language;
+		// Invalidate task cache when language changes to re-fetch with new locale
+		this.taskCache.clear();
 	}
 
 	private isExpired(timestamp: number): boolean {
@@ -93,19 +103,15 @@ export class TaskCache {
 		let status: { id: string; name: string } | null = null;
 		const isCompleted = task.checked === 1;
 		const isCancelled = task.checked === 2; // checked=2 means cancelled
+		const locale = LOCALES[this.language];
 
-		// If task is cancelled, force "Отменена" status
+		// If task is cancelled, force "Cancelled" status
 		if (isCancelled) {
-			status = { id: 'CANCELLED', name: 'Отменена' };
+			status = { id: 'CANCELLED', name: locale.statusCancelled };
 		}
-		// If task is completed, force "Готово" status
+		// If task is completed, force "Done" status (always use locale)
 		else if (isCompleted) {
-			const doneStatus = projectStatuses.find((s) => s.id.endsWith('-DONE'));
-			if (doneStatus) {
-				status = { id: doneStatus.id, name: doneStatus.name };
-			} else {
-				status = { id: 'DONE', name: 'Готово' };
-			}
+			status = { id: 'DONE', name: locale.statusDone };
 		} else if (taskKanbanStatus.length > 0) {
 			const statusId = taskKanbanStatus[0].statusId;
 			const kanbanStatus = projectStatuses.find((s) => s.id === statusId);

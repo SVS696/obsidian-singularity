@@ -23,7 +23,7 @@ export default class SingularityPlugin extends Plugin {
 		this.api = new SingularityAPI(this.settings.apiToken);
 
 		// Initialize cache
-		this.cache = new TaskCache(this.api, this.settings.cacheTTL);
+		this.cache = new TaskCache(this.api, this.settings.cacheTTL, this.settings.language);
 
 		// Initialize sync
 		this.sync = new ObsidianLinkSync(this);
@@ -106,6 +106,9 @@ export default class SingularityPlugin extends Plugin {
 
 		// Update cache TTL
 		this.cache.setCacheTTL(this.settings.cacheTTL);
+
+		// Update language
+		this.cache.setLanguage(this.settings.language);
 
 		// Update badge width CSS variable
 		this.updateBadgeWidthCSSVar();

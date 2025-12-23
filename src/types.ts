@@ -83,6 +83,11 @@ export interface CacheEntry<T> {
 }
 
 /**
+ * Supported languages
+ */
+export type Language = 'ru' | 'en';
+
+/**
  * Plugin settings
  */
 export interface SingularityPluginSettings {
@@ -91,6 +96,7 @@ export interface SingularityPluginSettings {
 	autoSync: boolean;
 	cacheTTL: number; // minutes
 	badgeMaxWidth: number; // pixels
+	language: Language;
 }
 
 export const DEFAULT_SETTINGS: SingularityPluginSettings = {
@@ -99,6 +105,42 @@ export const DEFAULT_SETTINGS: SingularityPluginSettings = {
 	autoSync: true,
 	cacheTTL: 5,
 	badgeMaxWidth: 300,
+	language: 'en',
+};
+
+/**
+ * Localization strings
+ */
+export const LOCALES: Record<Language, {
+	statusDone: string;
+	statusCancelled: string;
+	statusBacklog: string;
+	tooltipCompleted: string;
+	tooltipCancelled: string;
+	tooltipActive: string;
+	loading: string;
+	error: string;
+}> = {
+	ru: {
+		statusDone: 'Готово',
+		statusCancelled: 'Отменена',
+		statusBacklog: 'Backlog',
+		tooltipCompleted: 'Завершена',
+		tooltipCancelled: 'Отменена',
+		tooltipActive: 'Не завершена',
+		loading: 'Загрузка...',
+		error: 'Ошибка',
+	},
+	en: {
+		statusDone: 'Done',
+		statusCancelled: 'Cancelled',
+		statusBacklog: 'Backlog',
+		tooltipCompleted: 'Completed',
+		tooltipCancelled: 'Cancelled',
+		tooltipActive: 'Active',
+		loading: 'Loading...',
+		error: 'Error',
+	},
 };
 
 /**

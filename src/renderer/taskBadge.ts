@@ -1,5 +1,5 @@
-import type { TaskData } from '../types';
-import { buildSingularityUrl } from '../types';
+import type { TaskData, Language } from '../types';
+import { buildSingularityUrl, LOCALES } from '../types';
 
 /**
  * Status colors for different kanban states
@@ -16,9 +16,9 @@ const STATUS_COLORS: Record<string, string> = {
  */
 function getStatusColor(statusId: string): string {
 	if (statusId === 'CANCELLED') return STATUS_COLORS['CANCELLED'];
+	if (statusId === 'DONE' || statusId.endsWith('-DONE')) return STATUS_COLORS['DONE'];
 	if (statusId.endsWith('-TODO')) return STATUS_COLORS['TODO'];
 	if (statusId.endsWith('-IN-PROGRESS')) return STATUS_COLORS['IN-PROGRESS'];
-	if (statusId.endsWith('-DONE')) return STATUS_COLORS['DONE'];
 	// Custom status - use purple
 	return '#6f42c1';
 }
@@ -31,10 +31,12 @@ function getStatusColor(statusId: string): string {
  * │ [tag1] [tag2] [tag3]             │
  * └──────────────────────────────────┘
  */
-export function createTaskBadge(taskData: TaskData, singularityUrl: string): HTMLElement {
+export function createTaskBadge(taskData: TaskData, singularityUrl: string, language: Language = 'en'): HTMLElement {
 	const badge = document.createElement('div');
 	badge.className = 'singularity-task-badge';
 	badge.setAttribute('data-task-id', taskData.id);
+
+	const locale = LOCALES[language];
 
 	// Add completed/cancelled class
 	if (taskData.isCancelled) {
@@ -59,14 +61,14 @@ export function createTaskBadge(taskData: TaskData, singularityUrl: string): HTM
 	checkboxEl.className = 'singularity-task-checkbox';
 	if (taskData.isCancelled) {
 		checkboxEl.textContent = '✗';
-		checkboxEl.title = 'Отменена';
+		checkboxEl.title = locale.tooltipCancelled;
 		checkboxEl.classList.add('singularity-task-checkbox-cancelled');
 	} else if (taskData.isCompleted) {
 		checkboxEl.textContent = '✓';
-		checkboxEl.title = 'Завершена';
+		checkboxEl.title = locale.tooltipCompleted;
 	} else {
 		checkboxEl.textContent = '○';
-		checkboxEl.title = 'Не завершена';
+		checkboxEl.title = locale.tooltipActive;
 	}
 	topRow.appendChild(checkboxEl);
 
@@ -113,17 +115,19 @@ export function createTaskBadge(taskData: TaskData, singularityUrl: string): HTM
 /**
  * Create loading placeholder badge
  */
-export function createLoadingBadge(taskId: string): HTMLElement {
+export function createLoadingBadge(taskId: string, language: Language = 'en'): HTMLElement {
 	const badge = document.createElement('div');
 	badge.className = 'singularity-task-badge singularity-task-loading';
 	badge.setAttribute('data-task-id', taskId);
+
+	const locale = LOCALES[language];
 
 	const topRow = document.createElement('div');
 	topRow.className = 'singularity-task-row';
 
 	const loadingEl = document.createElement('span');
 	loadingEl.className = 'singularity-task-title';
-	loadingEl.textContent = 'Loading...';
+	loadingEl.textContent = locale.loading;
 	topRow.appendChild(loadingEl);
 
 	badge.appendChild(topRow);
@@ -134,10 +138,12 @@ export function createLoadingBadge(taskId: string): HTMLElement {
 /**
  * Create error badge
  */
-export function createErrorBadge(taskId: string, error: string): HTMLElement {
+export function createErrorBadge(taskId: string, error: string, language: Language = 'en'): HTMLElement {
 	const badge = document.createElement('div');
 	badge.className = 'singularity-task-badge singularity-task-error';
 	badge.setAttribute('data-task-id', taskId);
+
+	const locale = LOCALES[language];
 
 	// Make clickable to open in Singularity anyway
 	badge.addEventListener('click', (e) => {
@@ -156,7 +162,7 @@ export function createErrorBadge(taskId: string, error: string): HTMLElement {
 
 	const errorEl = document.createElement('span');
 	errorEl.className = 'singularity-task-status singularity-task-status-error';
-	errorEl.textContent = 'Error';
+	errorEl.textContent = locale.error;
 	errorEl.title = error;
 	topRow.appendChild(errorEl);
 
