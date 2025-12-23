@@ -37,7 +37,7 @@ npm run build
 ## Configuration
 
 1. Open Obsidian Settings → Singularity App Integration
-2. Enter your Singularity API Token (get it from Singularity App settings)
+2. Enter your Singularity API Token (get it from Singularity App [account](https://me.singularity-app.com/rest-tokens))
 3. Configure optional settings:
    - **Vault Name**: Override auto-detected vault name for Obsidian URLs
    - **Cache TTL**: How long to cache task data (default: 5 minutes)
