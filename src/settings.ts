@@ -17,7 +17,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('API token')
-			.setDesc('Your Singularity API token from me.singularity-app.com')
+			.setDesc('Your API token from me.singularity-app.com')
 			.addText((text) =>
 				text
 					.setPlaceholder('Enter your API token')
@@ -45,7 +45,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Vault name')
 			.setDesc(
-				'Name of your vault for generating URLs. Leave empty to auto-detect.'
+				'Name of your vault for generating URLs, leave empty to auto-detect'
 			)
 			.addText((text) =>
 				text
@@ -60,7 +60,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Auto-sync')
 			.setDesc(
-				'Automatically sync note URL to Singularity task when file is modified'
+				'Automatically sync note URL to task when file is modified'
 			)
 			.addToggle((toggle) =>
 				toggle
@@ -72,7 +72,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Cache TTL (minutes)')
+			.setName('Cache duration (minutes)')
 			.setDesc('How long to cache task data before refreshing')
 			.addSlider((slider) =>
 				slider
@@ -114,10 +114,10 @@ export class SingularitySettingTab extends PluginSettingTab {
 
 		const commandList = containerEl.createEl('ul');
 		commandList.createEl('li', {
-			text: 'Singularity: Refresh cache - Invalidate all cached data',
+			text: 'Singularity: Refresh cache - invalidate all cached data',
 		});
 		commandList.createEl('li', {
-			text: 'Singularity: Sync current note - Sync URL to linked task',
+			text: 'Singularity: Sync current note - sync URL to linked task',
 		});
 	}
 

@@ -301,7 +301,7 @@ export class ObsidianLinkSync {
 
 		const urls = this.findAllSingularityUrls(frontmatter);
 		if (urls.length === 0) {
-			new Notice('No Singularity links in frontmatter');
+			new Notice('No task links in frontmatter');
 			return;
 		}
 

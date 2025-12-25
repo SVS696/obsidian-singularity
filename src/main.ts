@@ -74,13 +74,13 @@ export default class SingularityPlugin extends Plugin {
 			id: 'sync-current-note',
 			name: 'Sync current note',
 			callback: () => {
-				this.sync.syncCurrentFile();
+				void this.sync.syncCurrentFile();
 			},
 		});
 
 		// Preload tags on startup
 		if (this.settings.apiToken) {
-			this.cache.preloadTags();
+			void this.cache.preloadTags();
 		}
 
 		console.debug('Singularity plugin loaded');
