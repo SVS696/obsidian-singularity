@@ -8,7 +8,7 @@ import {
 } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import type SingularityPlugin from '../main';
-import { extractTaskId, buildSingularityUrl, SINGULARITY_URL_REGEX } from '../types';
+import { buildSingularityUrl, SINGULARITY_URL_REGEX } from '../types';
 import { createTaskBadge, createLoadingBadge, createErrorBadge } from './taskBadge';
 
 /**

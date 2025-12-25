@@ -15,11 +15,9 @@ export class SingularitySettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Singularity App Integration' });
-
 		new Setting(containerEl)
-			.setName('API Token')
-			.setDesc('Your Singularity API token. Get it from me.singularity-app.com')
+			.setName('API token')
+			.setDesc('Your Singularity API token from me.singularity-app.com')
 			.addText((text) =>
 				text
 					.setPlaceholder('Enter your API token')
@@ -45,10 +43,9 @@ export class SingularitySettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName('Vault Name')
+			.setName('Vault name')
 			.setDesc(
-				'Name of your Obsidian vault for generating obsidian:// URLs. ' +
-					'Leave empty to auto-detect.'
+				'Name of your vault for generating URLs. Leave empty to auto-detect.'
 			)
 			.addText((text) =>
 				text
@@ -63,7 +60,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Auto-sync')
 			.setDesc(
-				'Automatically sync Obsidian note URL to Singularity task when file is modified'
+				'Automatically sync note URL to Singularity task when file is modified'
 			)
 			.addToggle((toggle) =>
 				toggle
@@ -107,7 +104,9 @@ export class SingularitySettingTab extends PluginSettingTab {
 					})
 			);
 
-		containerEl.createEl('h3', { text: 'Commands' });
+		new Setting(containerEl)
+			.setName('Commands')
+			.setHeading();
 
 		containerEl.createEl('p', {
 			text: 'Use the command palette (Ctrl/Cmd + P) to access:',
@@ -118,7 +117,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 			text: 'Singularity: Refresh cache - Invalidate all cached data',
 		});
 		commandList.createEl('li', {
-			text: 'Singularity: Sync current note - Sync Obsidian URL to linked task',
+			text: 'Singularity: Sync current note - Sync URL to linked task',
 		});
 	}
 

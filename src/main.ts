@@ -53,7 +53,7 @@ export default class SingularityPlugin extends Plugin {
 		this.registerEvent(
 			this.app.vault.on('rename', (file, oldPath) => {
 				if (file instanceof TFile) {
-					console.log(`[Singularity] File renamed: ${oldPath} -> ${file.path}`);
+					console.debug(`[Singularity] File renamed: ${oldPath} -> ${file.path}`);
 					// Trigger sync immediately with the new path
 					this.sync.onFileRenamed(file);
 				}
@@ -83,11 +83,11 @@ export default class SingularityPlugin extends Plugin {
 			this.cache.preloadTags();
 		}
 
-		console.log('Singularity plugin loaded');
+		console.debug('Singularity plugin loaded');
 	}
 
 	onunload(): void {
-		console.log('Singularity plugin unloaded');
+		console.debug('Singularity plugin unloaded');
 	}
 
 	async loadSettings(): Promise<void> {

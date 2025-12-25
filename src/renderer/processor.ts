@@ -12,7 +12,7 @@ import {
  */
 export function registerMarkdownProcessor(plugin: SingularityPlugin): void {
 	plugin.registerMarkdownPostProcessor(
-		(el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
+		(el: HTMLElement, _ctx: MarkdownPostProcessorContext) => {
 			processElement(plugin, el);
 		}
 	);
@@ -21,10 +21,10 @@ export function registerMarkdownProcessor(plugin: SingularityPlugin): void {
 /**
  * Process element and replace Singularity links with badges
  */
-async function processElement(
+function processElement(
 	plugin: SingularityPlugin,
 	el: HTMLElement
-): Promise<void> {
+): void {
 	// 1. Find all <a> links with singularityapp:// protocol
 	const links = el.querySelectorAll('a[href^="singularityapp://"]');
 
@@ -42,7 +42,7 @@ async function processElement(
 		link.replaceWith(badge);
 
 		// Load task data asynchronously
-		loadTaskData(plugin, badge, taskId, href);
+		void loadTaskData(plugin, badge, taskId, href);
 	}
 
 	// 2. Find inline URLs in text nodes (not wrapped in <a>)
@@ -107,7 +107,7 @@ function replaceTextNodeWithBadges(
 
 	for (const match of matches) {
 		const url = match[0];
-		const index = match.index!;
+		const index = match.index ?? 0;
 
 		// Add text before the URL
 		if (index > lastIndex) {
@@ -119,7 +119,7 @@ function replaceTextNodeWithBadges(
 			// Create badge for this URL
 			const badge = createLoadingBadge(taskId, language);
 			fragment.appendChild(badge);
-			loadTaskData(plugin, badge, taskId, url);
+			void loadTaskData(plugin, badge, taskId, url);
 		} else {
 			// Keep original text if no task ID found
 			fragment.appendChild(document.createTextNode(url));
@@ -191,10 +191,10 @@ export function registerPropertiesProcessor(plugin: SingularityPlugin): void {
 /**
  * Process properties element for Singularity links
  */
-async function processPropertiesElement(
+function processPropertiesElement(
 	plugin: SingularityPlugin,
 	el: HTMLElement
-): Promise<void> {
+): void {
 	// Look for property values containing singularityapp://
 	const propertyValues = el.querySelectorAll(
 		'.metadata-property-value, .metadata-link-inner'
@@ -218,7 +218,7 @@ async function processPropertiesElement(
 			valueEl.appendChild(badge);
 
 			// Load task data
-			loadTaskData(plugin, badge, taskId, buildSingularityUrl(taskId));
+			void loadTaskData(plugin, badge, taskId, buildSingularityUrl(taskId));
 		}
 	}
 }

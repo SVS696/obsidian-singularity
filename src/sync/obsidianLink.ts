@@ -11,7 +11,7 @@ export class ObsidianLinkSync {
 
 		// Debounce sync by 2 seconds
 		this.syncDebounced = debounce(
-			(file: TFile) => this.syncFile(file),
+			(file: TFile) => void this.syncFile(file),
 			2000,
 			true
 		);
@@ -45,7 +45,7 @@ export class ObsidianLinkSync {
 		}
 
 		// Sync immediately without debounce for renames
-		this.syncFile(file);
+		void this.syncFile(file);
 	}
 
 	/**
@@ -129,14 +129,14 @@ export class ObsidianLinkSync {
 	private getFieldValue(obj: Record<string, unknown> | undefined, fieldName: string): unknown {
 		if (!obj) return undefined;
 
-		const parts = fieldName.match(/([^.\[\]]+)|\[(\d+)\]/g);
+		const parts = fieldName.match(/([^.[\]]+)|[[](\d+)[\]]/g);
 		if (!parts) return undefined;
 
 		let current: unknown = obj;
 		for (const part of parts) {
 			if (current === undefined || current === null) return undefined;
 
-			const arrayMatch = part.match(/\[(\d+)\]/);
+			const arrayMatch = part.match(/[[](\d+)[\]]/);
 			if (arrayMatch) {
 				current = (current as unknown[])[parseInt(arrayMatch[1])];
 			} else {
@@ -162,7 +162,7 @@ export class ObsidianLinkSync {
 		const newId = this.generateUUID();
 		await this.addSidToFieldUrl(file, fieldName, newId);
 
-		console.log(`[Singularity] Generated sid for ${file.basename}.${fieldName}: ${newId}`);
+		console.debug(`[Singularity] Generated sid for ${file.basename}.${fieldName}: ${newId}`);
 		return newId;
 	}
 
@@ -172,33 +172,34 @@ export class ObsidianLinkSync {
 	private async addSidToFieldUrl(file: TFile, fieldName: string, sid: string): Promise<void> {
 		await this.plugin.app.fileManager.processFrontMatter(file, (fm) => {
 			// Handle nested fields and arrays
-			const parts = fieldName.match(/([^.\[\]]+)|\[(\d+)\]/g);
+			const parts = fieldName.match(/([^.[\]]+)|[[](\d+)[\]]/g);
 			if (!parts) return;
 
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			let obj: any = fm;
+			let obj: Record<string, unknown> | unknown[] = fm;
 			for (let i = 0; i < parts.length - 1; i++) {
 				const part = parts[i];
-				const arrayMatch = part.match(/\[(\d+)\]/);
+				const arrayMatch = part.match(/[[](\d+)[\]]/);
 				if (arrayMatch) {
-					obj = obj[parseInt(arrayMatch[1])];
+					obj = (obj as unknown[])[parseInt(arrayMatch[1])] as Record<string, unknown> | unknown[];
 				} else {
-					obj = obj[part];
+					obj = (obj as Record<string, unknown>)[part] as Record<string, unknown> | unknown[];
 				}
 			}
 
 			const lastPart = parts[parts.length - 1];
-			const arrayMatch = lastPart.match(/\[(\d+)\]/);
+			const arrayMatch = lastPart.match(/[[](\d+)[\]]/);
 
 			if (arrayMatch) {
 				const idx = parseInt(arrayMatch[1]);
-				if (obj[idx] && !obj[idx].includes('#sid=')) {
-					obj[idx] = `${obj[idx]}#sid=${sid}`;
+				const arrObj = obj as string[];
+				if (arrObj[idx] && !arrObj[idx].includes('#sid=')) {
+					arrObj[idx] = `${arrObj[idx]}#sid=${sid}`;
 				}
 			} else {
-				const currentValue = obj[lastPart];
+				const recObj = obj as Record<string, unknown>;
+				const currentValue = recObj[lastPart];
 				if (typeof currentValue === 'string' && !currentValue.includes('#sid=')) {
-					obj[lastPart] = `${currentValue}#sid=${sid}`;
+					recObj[lastPart] = `${currentValue}#sid=${sid}`;
 				}
 			}
 		});
@@ -237,22 +238,22 @@ export class ObsidianLinkSync {
 				const existingBaseUrl = this.extractBaseUrl(existingById.op);
 				if (existingBaseUrl === obsidianUrl) {
 					// Already synced with correct URL, skip
-					console.log(`[Singularity] Already synced: ${noteTitle}`);
+					console.debug(`[Singularity] Already synced: ${noteTitle}`);
 					return;
 				}
 				// URL changed (rename) - update the link
-				console.log(`[Singularity] Updating URL for ${noteTitle}`);
+				console.debug(`[Singularity] Updating URL for ${noteTitle}`);
 				deltaOps = api.updateObsidianLinkById(currentOps, noteTitle, obsidianUrl, singularityId);
 			} else {
 				// No link with our ID - check for any legacy obsidian:// link
 				const legacyLink = api.findAnyObsidianLink(currentOps);
 				if (legacyLink) {
 					// Found legacy link - add sid to its URL
-					console.log(`[Singularity] Adding sid to legacy link for ${noteTitle}`);
+					console.debug(`[Singularity] Adding sid to legacy link for ${noteTitle}`);
 					deltaOps = api.addSidToLink(currentOps, legacyLink.index, singularityId);
 				} else {
 					// No obsidian links at all - add new one
-					console.log(`[Singularity] Adding new link for ${noteTitle}`);
+					console.debug(`[Singularity] Adding new link for ${noteTitle}`);
 					deltaOps = api.updateObsidianLinkById(currentOps, noteTitle, obsidianUrl, singularityId);
 				}
 			}
@@ -263,7 +264,7 @@ export class ObsidianLinkSync {
 
 		// Update task
 		await api.updateTaskNote(taskId, deltaOps);
-		console.log(`[Singularity] Synced ${noteTitle} to task ${taskId}`);
+		console.debug(`[Singularity] Synced ${noteTitle} to task ${taskId}`);
 
 		// Invalidate cache
 		this.plugin.cache.invalidateTask(taskId);
