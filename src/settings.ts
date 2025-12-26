@@ -45,7 +45,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Vault name')
 			.setDesc(
-				'Name of your vault for generating URLs, leave empty to auto-detect'
+				'Vault name for generating links, leave empty to auto-detect'
 			)
 			.addText((text) =>
 				text
@@ -114,10 +114,10 @@ export class SingularitySettingTab extends PluginSettingTab {
 
 		const commandList = containerEl.createEl('ul');
 		commandList.createEl('li', {
-			text: 'Singularity: Refresh cache - invalidate all cached data',
+			text: 'Singularity: refresh cache - invalidate all cached data',
 		});
 		commandList.createEl('li', {
-			text: 'Singularity: Sync current note - sync URL to linked task',
+			text: 'Singularity: sync current note - sync link to task',
 		});
 	}
 
