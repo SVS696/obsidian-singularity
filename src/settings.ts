@@ -96,8 +96,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.badgeMaxWidth = value;
 						await this.plugin.saveSettings();
-						// Update CSS variable
-						document.body.style.setProperty(
+						activeDocument.body.style.setProperty(
 							'--singularity-badge-max-width',
 							`${value}px`
 						);

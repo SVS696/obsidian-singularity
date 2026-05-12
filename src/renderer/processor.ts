@@ -53,12 +53,12 @@ function processElement(
  * Process inline singularityapp:// URLs in text nodes
  */
 function processInlineUrls(plugin: SingularityPlugin, el: HTMLElement): void {
-	const walker = document.createTreeWalker(
+	const doc = el.ownerDocument;
+	const walker = doc.createTreeWalker(
 		el,
 		NodeFilter.SHOW_TEXT,
 		{
 			acceptNode: (node) => {
-				// Skip if parent is already a badge or link
 				const parent = node.parentElement;
 				if (
 					parent?.classList.contains('singularity-task-badge') ||
@@ -67,7 +67,6 @@ function processInlineUrls(plugin: SingularityPlugin, el: HTMLElement): void {
 				) {
 					return NodeFilter.FILTER_REJECT;
 				}
-				// Only accept nodes with singularityapp:// URLs
 				if (node.textContent?.includes('singularityapp://')) {
 					return NodeFilter.FILTER_ACCEPT;
 				}
@@ -102,38 +101,34 @@ function replaceTextNodeWithBadges(
 	if (matches.length === 0) return;
 
 	const language = plugin.settings.language;
-	const fragment = document.createDocumentFragment();
+	const doc = textNode.ownerDocument ?? activeDocument;
+	const fragment = doc.createDocumentFragment();
 	let lastIndex = 0;
 
 	for (const match of matches) {
 		const url = match[0];
 		const index = match.index ?? 0;
 
-		// Add text before the URL
 		if (index > lastIndex) {
-			fragment.appendChild(document.createTextNode(text.slice(lastIndex, index)));
+			fragment.appendChild(doc.createTextNode(text.slice(lastIndex, index)));
 		}
 
 		const taskId = extractTaskId(url);
 		if (taskId) {
-			// Create badge for this URL
 			const badge = createLoadingBadge(taskId, language);
 			fragment.appendChild(badge);
 			void loadTaskData(plugin, badge, taskId, url);
 		} else {
-			// Keep original text if no task ID found
-			fragment.appendChild(document.createTextNode(url));
+			fragment.appendChild(doc.createTextNode(url));
 		}
 
 		lastIndex = index + url.length;
 	}
 
-	// Add remaining text after last URL
 	if (lastIndex < text.length) {
-		fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+		fragment.appendChild(doc.createTextNode(text.slice(lastIndex)));
 	}
 
-	// Replace text node with fragment
 	textNode.parentNode?.replaceChild(fragment, textNode);
 }
 
@@ -164,28 +159,29 @@ async function loadTaskData(
  * This handles the Properties view in Obsidian
  */
 export function registerPropertiesProcessor(plugin: SingularityPlugin): void {
-	// Use mutation observer to watch for property changes
 	const observer = new MutationObserver((mutations) => {
 		for (const mutation of mutations) {
 			for (const node of Array.from(mutation.addedNodes)) {
-				if (node instanceof HTMLElement) {
+				if (isHTMLElement(node)) {
 					processPropertiesElement(plugin, node);
 				}
 			}
 		}
 	});
 
-	// Start observing when plugin loads
 	plugin.app.workspace.onLayoutReady(() => {
-		const container = document.body;
-		observer.observe(container, {
+		observer.observe(activeDocument.body, {
 			childList: true,
 			subtree: true,
 		});
 	});
 
-	// Cleanup on unload
 	plugin.register(() => observer.disconnect());
+}
+
+function isHTMLElement(node: Node): node is HTMLElement {
+	if (node.nodeType !== Node.ELEMENT_NODE) return false;
+	return (node as Element).instanceOf(HTMLElement);
 }
 
 /**

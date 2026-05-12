@@ -27,9 +27,7 @@ class SingularityTaskWidget extends WidgetType {
 	}
 
 	toDOM(): HTMLElement {
-		// Create container that will be updated
-		const container = document.createElement('span');
-		container.className = 'singularity-widget-container';
+		const container = createSpan({ cls: 'singularity-widget-container' });
 
 		const language = this.plugin.settings.language;
 

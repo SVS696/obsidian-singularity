@@ -51,9 +51,8 @@ export default class SingularityPlugin extends Plugin {
 
 		// Register file rename event for auto-sync
 		this.registerEvent(
-			this.app.vault.on('rename', (file, oldPath) => {
+			this.app.vault.on('rename', (file) => {
 				if (file instanceof TFile) {
-					console.debug(`[Singularity] File renamed: ${oldPath} -> ${file.path}`);
 					// Trigger sync immediately with the new path
 					this.sync.onFileRenamed(file);
 				}
@@ -82,20 +81,15 @@ export default class SingularityPlugin extends Plugin {
 		if (this.settings.apiToken) {
 			void this.cache.preloadTags();
 		}
-
-		console.debug('Singularity plugin loaded');
 	}
 
 	onunload(): void {
-		console.debug('Singularity plugin unloaded');
+		// no-op
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
+		const data = (await this.loadData()) as Partial<SingularityPluginSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
 	}
 
 	async saveSettings(): Promise<void> {
@@ -114,11 +108,8 @@ export default class SingularityPlugin extends Plugin {
 		this.updateBadgeWidthCSSVar();
 	}
 
-	/**
-	 * Update CSS variable for badge max width
-	 */
 	updateBadgeWidthCSSVar(): void {
-		document.body.style.setProperty(
+		activeDocument.body.style.setProperty(
 			'--singularity-badge-max-width',
 			`${this.settings.badgeMaxWidth}px`
 		);

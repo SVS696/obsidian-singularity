@@ -2,6 +2,35 @@ import { TFile, debounce, Notice } from 'obsidian';
 import type SingularityPlugin from '../main';
 import { extractTaskId, buildObsidianUrl } from '../types';
 
+type PathToken = { kind: 'key'; name: string } | { kind: 'index'; index: number };
+
+function tokenizePath(path: string): PathToken[] {
+	const tokens: PathToken[] = [];
+	let i = 0;
+	while (i < path.length) {
+		const ch = path[i];
+		if (ch === '.') {
+			i++;
+			continue;
+		}
+		if (ch === '[') {
+			const end = path.indexOf(']', i);
+			if (end === -1) break;
+			const idx = parseInt(path.slice(i + 1, end), 10);
+			if (!Number.isNaN(idx)) {
+				tokens.push({ kind: 'index', index: idx });
+			}
+			i = end + 1;
+			continue;
+		}
+		let j = i;
+		while (j < path.length && path[j] !== '.' && path[j] !== '[') j++;
+		tokens.push({ kind: 'key', name: path.slice(i, j) });
+		i = j;
+	}
+	return tokens;
+}
+
 export class ObsidianLinkSync {
 	private plugin: SingularityPlugin;
 	private syncDebounced: (file: TFile) => void;
@@ -129,77 +158,68 @@ export class ObsidianLinkSync {
 	private getFieldValue(obj: Record<string, unknown> | undefined, fieldName: string): unknown {
 		if (!obj) return undefined;
 
-		const parts = fieldName.match(/([^.[\]]+)|[[](\d+)[\]]/g);
-		if (!parts) return undefined;
+		const tokens = tokenizePath(fieldName);
+		if (tokens.length === 0) return undefined;
 
 		let current: unknown = obj;
-		for (const part of parts) {
+		for (const token of tokens) {
 			if (current === undefined || current === null) return undefined;
-
-			const arrayMatch = part.match(/[[](\d+)[\]]/);
-			if (arrayMatch) {
-				current = (current as unknown[])[parseInt(arrayMatch[1])];
+			if (token.kind === 'index') {
+				if (!Array.isArray(current)) return undefined;
+				current = current[token.index];
 			} else {
-				current = (current as Record<string, unknown>)[part];
+				if (typeof current !== 'object' || Array.isArray(current)) return undefined;
+				current = (current as Record<string, unknown>)[token.name];
 			}
 		}
 
 		return current;
 	}
 
-	/**
-	 * Get or generate singularity_id for a specific URL in frontmatter
-	 * ID is stored in the URL fragment: singularityapp://...#sid=uuid
-	 */
 	async getOrCreateSingularityId(file: TFile, url: string, fieldName: string): Promise<string> {
-		// First check if sid is already in the URL
 		const existingSid = this.extractSidFromUrl(url);
 		if (existingSid) {
 			return existingSid;
 		}
 
-		// Generate new ID and add to URL
 		const newId = this.generateUUID();
 		await this.addSidToFieldUrl(file, fieldName, newId);
-
-		console.debug(`[Singularity] Generated sid for ${file.basename}.${fieldName}: ${newId}`);
 		return newId;
 	}
 
-	/**
-	 * Add sid fragment to a specific URL field in frontmatter
-	 */
 	private async addSidToFieldUrl(file: TFile, fieldName: string, sid: string): Promise<void> {
-		await this.plugin.app.fileManager.processFrontMatter(file, (fm) => {
-			// Handle nested fields and arrays
-			const parts = fieldName.match(/([^.[\]]+)|[[](\d+)[\]]/g);
-			if (!parts) return;
+		await this.plugin.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+			const tokens = tokenizePath(fieldName);
+			if (tokens.length === 0) return;
 
-			let obj: Record<string, unknown> | unknown[] = fm;
-			for (let i = 0; i < parts.length - 1; i++) {
-				const part = parts[i];
-				const arrayMatch = part.match(/[[](\d+)[\]]/);
-				if (arrayMatch) {
-					obj = (obj as unknown[])[parseInt(arrayMatch[1])] as Record<string, unknown> | unknown[];
+			let parent: Record<string, unknown> | unknown[] = fm;
+			for (let i = 0; i < tokens.length - 1; i++) {
+				const token = tokens[i];
+				let next: unknown;
+				if (token.kind === 'index') {
+					if (!Array.isArray(parent)) return;
+					next = parent[token.index];
 				} else {
-					obj = (obj as Record<string, unknown>)[part] as Record<string, unknown> | unknown[];
+					if (Array.isArray(parent)) return;
+					next = parent[token.name];
 				}
+				if (next === undefined || next === null) return;
+				if (typeof next !== 'object') return;
+				parent = next as Record<string, unknown> | unknown[];
 			}
 
-			const lastPart = parts[parts.length - 1];
-			const arrayMatch = lastPart.match(/[[](\d+)[\]]/);
-
-			if (arrayMatch) {
-				const idx = parseInt(arrayMatch[1]);
-				const arrObj = obj as string[];
-				if (arrObj[idx] && !arrObj[idx].includes('#sid=')) {
-					arrObj[idx] = `${arrObj[idx]}#sid=${sid}`;
+			const last = tokens[tokens.length - 1];
+			if (last.kind === 'index') {
+				if (!Array.isArray(parent)) return;
+				const current = parent[last.index];
+				if (typeof current === 'string' && !current.includes('#sid=')) {
+					parent[last.index] = `${current}#sid=${sid}`;
 				}
 			} else {
-				const recObj = obj as Record<string, unknown>;
-				const currentValue = recObj[lastPart];
-				if (typeof currentValue === 'string' && !currentValue.includes('#sid=')) {
-					recObj[lastPart] = `${currentValue}#sid=${sid}`;
+				if (Array.isArray(parent)) return;
+				const current = parent[last.name];
+				if (typeof current === 'string' && !current.includes('#sid=')) {
+					parent[last.name] = `${current}#sid=${sid}`;
 				}
 			}
 		});
@@ -227,46 +247,29 @@ export class ObsidianLinkSync {
 		let deltaOps;
 
 		if (task.note) {
-			// Task has existing notes - get and update
 			const note = await api.getNote(task.note);
 			const currentOps = api.parseNoteContent(note.content);
 
-			// Check if this note is already synced (has our singularity_id in URL)
 			const existingById = api.findObsidianLinkById(currentOps, singularityId);
 			if (existingById) {
-				// Check if base URL is the same (ignoring sid fragment)
 				const existingBaseUrl = this.extractBaseUrl(existingById.op);
 				if (existingBaseUrl === obsidianUrl) {
-					// Already synced with correct URL, skip
-					console.debug(`[Singularity] Already synced: ${noteTitle}`);
 					return;
 				}
-				// URL changed (rename) - update the link
-				console.debug(`[Singularity] Updating URL for ${noteTitle}`);
 				deltaOps = api.updateObsidianLinkById(currentOps, noteTitle, obsidianUrl, singularityId);
 			} else {
-				// No link with our ID - check for any legacy obsidian:// link
 				const legacyLink = api.findAnyObsidianLink(currentOps);
 				if (legacyLink) {
-					// Found legacy link - add sid to its URL
-					console.debug(`[Singularity] Adding sid to legacy link for ${noteTitle}`);
 					deltaOps = api.addSidToLink(currentOps, legacyLink.index, singularityId);
 				} else {
-					// No obsidian links at all - add new one
-					console.debug(`[Singularity] Adding new link for ${noteTitle}`);
 					deltaOps = api.updateObsidianLinkById(currentOps, noteTitle, obsidianUrl, singularityId);
 				}
 			}
 		} else {
-			// No existing notes - create new
 			deltaOps = api.createInitialDelta(noteTitle, obsidianUrl, singularityId);
 		}
 
-		// Update task
 		await api.updateTaskNote(taskId, deltaOps);
-		console.debug(`[Singularity] Synced ${noteTitle} to task ${taskId}`);
-
-		// Invalidate cache
 		this.plugin.cache.invalidateTask(taskId);
 	}
 
