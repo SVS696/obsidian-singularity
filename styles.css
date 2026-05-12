@@ -72,12 +72,12 @@
 	border-radius: 4px;
 	font-size: 0.75em;
 	font-weight: 600;
-	color: #fff;
+	color: #ffffff;
 	white-space: nowrap;
 }
 
-.singularity-task-status-error {
-	background: #dc3545 !important;
+.singularity-task-badge .singularity-task-status-error {
+	background: #dc3545;
 }
 
 /* Tags row - below title */
@@ -103,6 +103,7 @@
 /* Loading state */
 .singularity-task-loading {
 	opacity: 0.7;
+	animation: singularity-pulse 1.5s ease-in-out infinite;
 }
 
 .singularity-task-loading .singularity-task-title::before {
@@ -139,8 +140,8 @@
 	color: var(--text-muted);
 }
 
-.singularity-task-checkbox-cancelled {
-	color: #dc3545 !important;
+.singularity-task-badge .singularity-task-checkbox-cancelled {
+	color: #dc3545;
 	font-weight: bold;
 }
 
@@ -181,10 +182,6 @@
 	50% {
 		opacity: 1;
 	}
-}
-
-.singularity-task-loading {
-	animation: singularity-pulse 1.5s ease-in-out infinite;
 }
 
 /* Mobile adjustments */

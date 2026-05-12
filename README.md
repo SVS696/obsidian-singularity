@@ -1,4 +1,4 @@
-# Obsidian Singularity Plugin
+# Singularity App Integration
 
 Integrates [Singularity App](https://singularity.app) task manager with Obsidian. Renders task links as interactive badges and provides bidirectional sync between Obsidian notes and Singularity tasks.
 
