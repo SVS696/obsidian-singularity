@@ -230,6 +230,19 @@ function hasWaitingTag(task: TaskData, waitingTags: string[]): boolean {
 	});
 }
 
+function isOldUnlinkedNote(
+	note: RegistryNoteSource,
+	tasks: TaskData[],
+	config: RegistryModelConfig
+): boolean {
+	if (tasks.length > 0 || note.externalLinks.length > 0) return false;
+	const modifiedAt = Date.parse(note.modifiedAt);
+	if (!Number.isFinite(modifiedAt)) return false;
+	const now = config.now ?? Date.now();
+	const thresholdDays = Math.max(1, config.triageAfterDays);
+	return now - modifiedAt >= thresholdDays * 24 * 60 * 60 * 1000;
+}
+
 function classifyStage(
 	note: RegistryNoteSource,
 	tasks: TaskData[],
@@ -270,6 +283,9 @@ function classifyStage(
 	}
 	if (tasks.some((task) => task.isCompleted || task.isCancelled)) {
 		return 'archive';
+	}
+	if (isOldUnlinkedNote(note, tasks, config)) {
+		return 'triage';
 	}
 	return 'attention';
 }

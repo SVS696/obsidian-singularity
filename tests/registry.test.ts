@@ -16,7 +16,12 @@ import type {
 	RegistryNoteSource,
 	RegistrySnapshot,
 } from '../src/registry/types';
-import type { TaskData } from '../src/types';
+import { DEFAULT_SETTINGS, type TaskData } from '../src/types';
+
+test('registry is opt-in for new vaults', () => {
+	assert.equal(DEFAULT_SETTINGS.registryEnabled, false);
+	assert.equal(DEFAULT_SETTINGS.registryFolders, '');
+});
 
 function task(overrides: Partial<TaskData> = {}): TaskData {
 	return {
@@ -137,6 +142,8 @@ test('registry derives workflow stages and flags project/link conflicts', () => 
 			sourceProject: 'RTL',
 			deliveryProjects: ['Redmine'],
 			waitingTags: ['waiting'],
+			triageAfterDays: 90,
+			now: Date.parse('2026-07-24T12:00:00.000Z'),
 		}
 	);
 
@@ -162,6 +169,8 @@ test('notes that share a task are rendered as one entity', () => {
 			sourceProject: 'RTL',
 			deliveryProjects: ['Redmine'],
 			waitingTags: [],
+			triageAfterDays: 90,
+			now: Date.parse('2026-07-24T12:00:00.000Z'),
 		}
 	);
 
@@ -190,12 +199,47 @@ test('legacy question note is paired with one specification by filename', () => 
 			sourceProject: 'RTL',
 			deliveryProjects: ['Redmine'],
 			waitingTags: [],
+			triageAfterDays: 90,
+			now: Date.parse('2026-07-24T12:00:00.000Z'),
 		}
 	);
 
 	assert.equal(items.length, 1);
 	assert.equal(items[0].notes.length, 2);
 	assert.equal(items[0].title, '2026-06-03 — Report (CRM) (14874)');
+});
+
+test('old unlinked notes move out of attention into triage', () => {
+	const items = buildRegistryItems(
+		[
+			note({
+				path: 'old.md',
+				title: 'Old orphan',
+				modifiedAt: '2026-03-01T12:00:00.000Z',
+				taskIds: [],
+			}),
+			note({
+				path: 'recent.md',
+				title: 'Recent orphan',
+				modifiedAt: '2026-07-20T12:00:00.000Z',
+				taskIds: [],
+			}),
+		],
+		[],
+		{
+			sourceProject: 'RTL',
+			deliveryProjects: ['Redmine'],
+			waitingTags: [],
+			triageAfterDays: 90,
+			now: Date.parse('2026-07-24T12:00:00.000Z'),
+		}
+	);
+
+	assert.equal(items.find((item) => item.title === 'Old orphan')?.stage, 'triage');
+	assert.equal(
+		items.find((item) => item.title === 'Recent orphan')?.stage,
+		'attention'
+	);
 });
 
 test('document type inference keeps old notes out of a manual migration', () => {

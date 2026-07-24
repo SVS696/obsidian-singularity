@@ -25,6 +25,7 @@ const STAGE_ORDER: RegistryStage[] = [
 	'waiting',
 	'implementation-check',
 	'planned',
+	'triage',
 	'archive',
 ];
 
@@ -53,6 +54,7 @@ const UI = {
 			'implementation-check': 'Сверка реализации',
 			planned: 'Запланированы',
 			attention: 'Требуют внимания',
+			triage: 'Разобрать старое',
 			archive: 'Архив',
 		} as Record<RegistryStage, string>,
 	},
@@ -80,6 +82,7 @@ const UI = {
 			'implementation-check': 'Implementation check',
 			planned: 'Planned',
 			attention: 'Needs attention',
+			triage: 'Triage old',
 			archive: 'Archive',
 		} as Record<RegistryStage, string>,
 	},
@@ -267,7 +270,10 @@ export class TaskRegistryView extends ItemView {
 
 		return this.result.snapshot.items
 			.filter((item) => {
-				if (this.stageFilter === 'active' && item.stage === 'archive') {
+				if (
+					this.stageFilter === 'active' &&
+					(item.stage === 'archive' || item.stage === 'triage')
+				) {
 					return false;
 				}
 				if (

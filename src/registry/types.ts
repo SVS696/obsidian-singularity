@@ -17,6 +17,7 @@ export type RegistryStage =
 	| 'implementation-check'
 	| 'planned'
 	| 'attention'
+	| 'triage'
 	| 'archive';
 
 export interface RegistryExternalLink {
@@ -51,6 +52,8 @@ export interface RegistryModelConfig {
 	sourceProject: string;
 	deliveryProjects: string[];
 	waitingTags: string[];
+	triageAfterDays: number;
+	now?: number;
 }
 
 export interface RegistrySnapshot {
@@ -61,6 +64,7 @@ export interface RegistrySnapshot {
 		sourceProject: string;
 		deliveryProjects: string[];
 		externalLinkFields: string[];
+		triageAfterDays?: number;
 	};
 	taskEntries: Record<string, CacheEntry<TaskData>>;
 	items: RegistryItem[];
