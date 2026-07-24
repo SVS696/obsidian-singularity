@@ -1,9 +1,9 @@
 {
 	"id": "singularity-app",
 	"name": "Singularity App Integration",
-	"version": "1.1.4",
+	"version": "1.2.0",
 	"minAppVersion": "1.4.4",
-	"description": "Integrates Singularity App tasks. Renders task links as interactive badges and syncs note URLs back to Singularity.",
+	"description": "Integrates Singularity App tasks with badges, note sync, and a persistent task registry.",
 	"author": "Vladislav Samorodov",
 	"authorUrl": "https://github.com/SVS696",
 	"fundingUrl": "https://github.com/SVS696",

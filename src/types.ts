@@ -14,7 +14,20 @@ export interface SingularityTask {
 	state: number;
 	priority: number;
 	journalDate?: string;
+	deadline?: string | null;
 	dueDate?: string | null;
+	modificatedDate?: string;
+	createdDate?: string;
+	removed?: boolean;
+}
+
+// Project from Singularity API
+export interface SingularityProject {
+	id: string; // P-{uuid}
+	title: string;
+	parent: string | null;
+	archived?: boolean;
+	removed?: boolean;
 }
 
 // Tag from Singularity API
@@ -29,6 +42,7 @@ export interface SingularityTag {
 export interface KanbanStatus {
 	id: string; // KS-P-{uuid}-TODO | KS-P-{uuid}-IN-PROGRESS | KS-P-{uuid}-DONE | KS-{uuid}
 	name: string;
+	projectId?: string;
 	kanbanOrder: number;
 }
 
@@ -64,14 +78,18 @@ export interface TaskData {
 	id: string;
 	title: string;
 	projectId: string;
+	projectTitle: string | null;
 	status: {
 		id: string;
 		name: string;
 	} | null;
 	tags: SingularityTag[];
 	noteId: string | null;
+	deadline: string | null;
 	isCompleted: boolean;
 	isCancelled: boolean;
+	cacheUpdatedAt?: string;
+	isStale?: boolean;
 }
 
 /**
@@ -97,6 +115,14 @@ export interface SingularityPluginSettings {
 	cacheTTL: number; // minutes
 	badgeMaxWidth: number; // pixels
 	language: Language;
+	registryEnabled: boolean;
+	registryTitle: string;
+	registryFolders: string;
+	registrySourceProject: string;
+	registryDeliveryProjects: string;
+	registryExternalLinkFields: string;
+	registryWaitingTags: string;
+	registrySnapshotPath: string;
 }
 
 export const DEFAULT_SETTINGS: SingularityPluginSettings = {
@@ -106,6 +132,14 @@ export const DEFAULT_SETTINGS: SingularityPluginSettings = {
 	cacheTTL: 5,
 	badgeMaxWidth: 300,
 	language: 'en',
+	registryEnabled: true,
+	registryTitle: 'Task registry',
+	registryFolders: '',
+	registrySourceProject: '',
+	registryDeliveryProjects: '',
+	registryExternalLinkFields: 'redmine',
+	registryWaitingTags: 'waiting,wait,жду,ждём,ожидание',
+	registrySnapshotPath: '.singularity/task-registry.json',
 };
 
 /**
@@ -120,6 +154,7 @@ export const LOCALES: Record<Language, {
 	tooltipActive: string;
 	loading: string;
 	error: string;
+	stale: string;
 }> = {
 	ru: {
 		statusDone: 'Готово',
@@ -130,6 +165,7 @@ export const LOCALES: Record<Language, {
 		tooltipActive: 'Не завершена',
 		loading: 'Загрузка...',
 		error: 'Ошибка',
+		stale: 'Сохранённые данные',
 	},
 	en: {
 		statusDone: 'Done',
@@ -140,6 +176,7 @@ export const LOCALES: Record<Language, {
 		tooltipActive: 'Active',
 		loading: 'Loading...',
 		error: 'Error',
+		stale: 'Cached data',
 	},
 };
 

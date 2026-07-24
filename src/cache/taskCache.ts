@@ -5,7 +5,7 @@ import type {
 	CacheEntry,
 	Language,
 } from '../types';
-import { SingularityAPI } from '../api/singularity';
+import type { SingularityAPI } from '../api/singularity';
 import { LOCALES } from '../types';
 
 export class TaskCache {
@@ -35,6 +35,63 @@ export class TaskCache {
 
 	private isExpired(timestamp: number): boolean {
 		return Date.now() - timestamp > this.cacheTTL * 60 * 1000;
+	}
+
+	private withCacheState(
+		entry: CacheEntry<TaskData>,
+		isStale: boolean
+	): TaskData {
+		return {
+			...entry.data,
+			cacheUpdatedAt: new Date(entry.timestamp).toISOString(),
+			isStale,
+		};
+	}
+
+	/**
+	 * Seed task data from a persistent registry snapshot.
+	 */
+	hydrateTaskEntries(entries: Record<string, CacheEntry<TaskData>>): void {
+		for (const [taskId, entry] of Object.entries(entries)) {
+			if (!entry || !entry.data || !Number.isFinite(entry.timestamp)) {
+				continue;
+			}
+			this.taskCache.set(taskId, {
+				data: { ...entry.data, isStale: false },
+				timestamp: entry.timestamp,
+			});
+		}
+	}
+
+	/**
+	 * Store fresh batch data collected by the task registry.
+	 */
+	putTaskData(taskData: TaskData, timestamp = Date.now()): void {
+		this.taskCache.set(taskData.id, {
+			data: {
+				...taskData,
+				cacheUpdatedAt: new Date(timestamp).toISOString(),
+				isStale: false,
+			},
+			timestamp,
+		});
+	}
+
+	exportTaskEntries(taskIds?: string[]): Record<string, CacheEntry<TaskData>> {
+		const allowed = taskIds ? new Set(taskIds) : null;
+		const entries: Record<string, CacheEntry<TaskData>> = {};
+
+		for (const [taskId, entry] of this.taskCache.entries()) {
+			if (allowed && !allowed.has(taskId)) {
+				continue;
+			}
+			entries[taskId] = {
+				data: { ...entry.data, isStale: false },
+				timestamp: entry.timestamp,
+			};
+		}
+
+		return entries;
 	}
 
 	/**
@@ -86,63 +143,75 @@ export class TaskCache {
 	async getTaskData(taskId: string): Promise<TaskData> {
 		const cached = this.taskCache.get(taskId);
 		if (cached && !this.isExpired(cached.timestamp)) {
-			return cached.data;
+			return this.withCacheState(cached, false);
 		}
 
-		// Fetch task
-		const task = await this.api.getTask(taskId);
+		try {
+			// Fetch task
+			const task = await this.api.getTask(taskId);
 
-		// Fetch kanban status
-		const [taskKanbanStatus, projectStatuses, tags] = await Promise.all([
-			this.api.getTaskKanbanStatus(taskId),
-			this.getKanbanStatuses(task.projectId),
-			this.getTagsByIds(task.tags || []),
-		]);
+			// Fetch kanban status
+			const [taskKanbanStatus, projectStatuses, tags] = await Promise.all([
+				this.api.getTaskKanbanStatus(taskId),
+				this.getKanbanStatuses(task.projectId),
+				this.getTagsByIds(task.tags || []),
+			]);
 
-		// Determine status
-		let status: { id: string; name: string } | null = null;
-		const isCompleted = task.checked === 1;
-		const isCancelled = task.checked === 2; // checked=2 means cancelled
-		const locale = LOCALES[this.language];
+			// Determine status
+			let status: { id: string; name: string } | null = null;
+			const isCompleted = task.checked === 1;
+			const isCancelled = task.checked === 2; // checked=2 means cancelled
+			const locale = LOCALES[this.language];
 
-		// If task is cancelled, force "Cancelled" status
-		if (isCancelled) {
-			status = { id: 'CANCELLED', name: locale.statusCancelled };
-		}
-		// If task is completed, force "Done" status (always use locale)
-		else if (isCompleted) {
-			status = { id: 'DONE', name: locale.statusDone };
-		} else if (taskKanbanStatus.length > 0) {
-			const statusId = taskKanbanStatus[0].statusId;
-			const kanbanStatus = projectStatuses.find((s) => s.id === statusId);
-			if (kanbanStatus) {
-				status = { id: kanbanStatus.id, name: kanbanStatus.name };
+			// If task is cancelled, force "Cancelled" status
+			if (isCancelled) {
+				status = { id: 'CANCELLED', name: locale.statusCancelled };
 			}
-		} else {
-			// Default to "Backlog" (TODO)
-			const todoStatus = projectStatuses.find((s) => s.id.endsWith('-TODO'));
-			if (todoStatus) {
-				status = { id: todoStatus.id, name: todoStatus.name };
+			// If task is completed, force "Done" status (always use locale)
+			else if (isCompleted) {
+				status = { id: 'DONE', name: locale.statusDone };
+			} else if (taskKanbanStatus.length > 0) {
+				const statusId = taskKanbanStatus[0].statusId;
+				const kanbanStatus = projectStatuses.find((s) => s.id === statusId);
+				if (kanbanStatus) {
+					status = { id: kanbanStatus.id, name: kanbanStatus.name };
+				}
+			} else {
+				// Default to "Backlog" (TODO)
+				const todoStatus = projectStatuses.find((s) => s.id.endsWith('-TODO'));
+				if (todoStatus) {
+					status = { id: todoStatus.id, name: todoStatus.name };
+				}
 			}
+
+			const now = Date.now();
+			const taskData: TaskData = {
+				id: task.id,
+				title: task.title,
+				projectId: task.projectId,
+				projectTitle: null,
+				status,
+				tags,
+				noteId: task.note,
+				deadline: task.deadline ?? task.dueDate ?? null,
+				isCompleted: task.checked === 1,
+				isCancelled,
+				cacheUpdatedAt: new Date(now).toISOString(),
+				isStale: false,
+			};
+
+			this.taskCache.set(taskId, {
+				data: taskData,
+				timestamp: now,
+			});
+
+			return taskData;
+		} catch (error) {
+			if (cached) {
+				return this.withCacheState(cached, true);
+			}
+			throw error;
 		}
-
-		const taskData: TaskData = {
-			id: task.id,
-			title: task.title,
-			projectId: task.projectId,
-			status,
-			tags,
-			noteId: task.note,
-			isCompleted: task.checked === 1,
-			isCancelled,
-		};
-
-		this.taskCache.set(taskId, {
-			data: taskData,
-			timestamp: Date.now(),
-		});
-
-		return taskData;
 	}
 
 	/**

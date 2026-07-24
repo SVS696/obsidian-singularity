@@ -4,6 +4,8 @@ main.js
 
 # npm
 node_modules/
+.npm-cache/
+.test-dist/
 
 # IDE
 .idea/
