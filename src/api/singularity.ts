@@ -1,6 +1,7 @@
 import { requestUrl, RequestUrlParam } from 'obsidian';
 import type {
 	SingularityTask,
+	SingularityProject,
 	SingularityTag,
 	SingularityNote,
 	KanbanStatus,
@@ -63,6 +64,8 @@ export class SingularityAPI {
 		if (response && typeof response === 'object') {
 			const obj = response as Record<string, unknown>;
 			// Singularity API specific keys
+			if (Array.isArray(obj.tasks)) return obj.tasks as T[];
+			if (Array.isArray(obj.projects)) return obj.projects as T[];
 			if (Array.isArray(obj.tags)) return obj.tags as T[];
 			if (Array.isArray(obj.kanbanStatuses)) return obj.kanbanStatuses as T[];
 			if (Array.isArray(obj.kanbanTaskStatuses)) return obj.kanbanTaskStatuses as T[];
@@ -76,10 +79,53 @@ export class SingularityAPI {
 	}
 
 	/**
+	 * Read a complete list endpoint in bounded pages.
+	 */
+	private async listAll<T>(endpoint: string, pageSize = 1000): Promise<T[]> {
+		const items: T[] = [];
+		let offset = 0;
+
+		for (let page = 0; page < 100; page++) {
+			const separator = endpoint.includes('?') ? '&' : '?';
+			const response = await this.request<unknown>(
+				`${endpoint}${separator}maxCount=${pageSize}&offset=${offset}`
+			);
+			const pageItems = this.normalizeArrayResponse<T>(response);
+			items.push(...pageItems);
+
+			if (pageItems.length < pageSize) {
+				return items;
+			}
+
+			offset += pageItems.length;
+		}
+
+		throw new Error('Singularity API pagination exceeded the safety limit');
+	}
+
+	/**
 	 * Get task by ID
 	 */
 	async getTask(taskId: string): Promise<SingularityTask> {
 		return this.request<SingularityTask>(`/v2/task/${taskId}`);
+	}
+
+	/**
+	 * Get all tasks in one paginated batch.
+	 */
+	async getTasks(): Promise<SingularityTask[]> {
+		return this.listAll<SingularityTask>(
+			'/v2/task?includeArchived=true&includeRemoved=true'
+		);
+	}
+
+	/**
+	 * Get all projects.
+	 */
+	async getProjects(): Promise<SingularityProject[]> {
+		return this.listAll<SingularityProject>(
+			'/v2/project?includeArchived=true&includeRemoved=true'
+		);
 	}
 
 	/**
@@ -109,6 +155,13 @@ export class SingularityAPI {
 	}
 
 	/**
+	 * Get all kanban statuses for batch registry refresh.
+	 */
+	async getAllKanbanStatuses(): Promise<KanbanStatus[]> {
+		return this.listAll<KanbanStatus>('/v2/kanban-status');
+	}
+
+	/**
 	 * Get kanban status for a specific task
 	 * Returns empty array if task is in "Backlog" (TODO)
 	 */
@@ -118,11 +171,17 @@ export class SingularityAPI {
 	}
 
 	/**
+	 * Get all task-to-kanban mappings for batch registry refresh.
+	 */
+	async getAllTaskKanbanStatuses(): Promise<TaskKanbanStatus[]> {
+		return this.listAll<TaskKanbanStatus>('/v2/kanban-task-status');
+	}
+
+	/**
 	 * Get all tags
 	 */
 	async getTags(): Promise<SingularityTag[]> {
-		const response = await this.request<unknown>('/v2/tag');
-		return this.normalizeArrayResponse<SingularityTag>(response);
+		return this.listAll<SingularityTag>('/v2/tag');
 	}
 
 	/**

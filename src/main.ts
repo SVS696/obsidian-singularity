@@ -6,12 +6,18 @@ import { SingularitySettingTab } from './settings';
 import { registerMarkdownProcessor, registerPropertiesProcessor } from './renderer/processor';
 import { registerLivePreview } from './renderer/livePreview';
 import { ObsidianLinkSync } from './sync/obsidianLink';
+import { TaskRegistryService } from './registry/service';
+import {
+	TASK_REGISTRY_VIEW_TYPE,
+	TaskRegistryView,
+} from './registry/view';
 
 export default class SingularityPlugin extends Plugin {
 	settings!: SingularityPluginSettings;
 	api!: SingularityAPI;
 	cache!: TaskCache;
 	sync!: ObsidianLinkSync;
+	registry!: TaskRegistryService;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -27,6 +33,13 @@ export default class SingularityPlugin extends Plugin {
 
 		// Initialize sync
 		this.sync = new ObsidianLinkSync(this);
+
+		// Initialize the persistent task registry
+		this.registry = new TaskRegistryService(this);
+		this.registerView(
+			TASK_REGISTRY_VIEW_TYPE,
+			(leaf) => new TaskRegistryView(leaf, this)
+		);
 
 		// Add settings tab
 		this.addSettingTab(new SingularitySettingTab(this.app, this));
@@ -77,6 +90,33 @@ export default class SingularityPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: 'open-task-registry',
+			name: 'Open task registry',
+			callback: () => {
+				void this.activateTaskRegistry();
+			},
+		});
+
+		this.addCommand({
+			id: 'refresh-task-registry',
+			name: 'Refresh task registry',
+			callback: () => {
+				void this.refreshTaskRegistry();
+			},
+		});
+
+		if (this.settings.registryEnabled) {
+			this.addRibbonIcon(
+				'list-checks',
+				'Open Singularity task registry',
+				() => {
+					void this.activateTaskRegistry();
+				}
+			);
+			void this.registry.loadSnapshot();
+		}
+
 		// Preload tags on startup
 		if (this.settings.apiToken) {
 			void this.cache.preloadTags();
@@ -84,7 +124,50 @@ export default class SingularityPlugin extends Plugin {
 	}
 
 	onunload(): void {
-		// no-op
+		this.app.workspace.detachLeavesOfType(TASK_REGISTRY_VIEW_TYPE);
+	}
+
+	async activateTaskRegistry(): Promise<void> {
+		const existing =
+			this.app.workspace.getLeavesOfType(TASK_REGISTRY_VIEW_TYPE)[0];
+		const leaf = existing ?? this.app.workspace.getLeaf(true);
+
+		if (!existing) {
+			await leaf.setViewState({
+				type: TASK_REGISTRY_VIEW_TYPE,
+				active: true,
+			});
+		}
+		await this.app.workspace.revealLeaf(leaf);
+	}
+
+	private async refreshTaskRegistry(): Promise<void> {
+		try {
+			const views = this.app.workspace
+				.getLeavesOfType(TASK_REGISTRY_VIEW_TYPE)
+				.map((leaf) => leaf.view)
+				.filter(
+					(view): view is TaskRegistryView =>
+						view instanceof TaskRegistryView
+				);
+			if (views.length > 0) {
+				await Promise.all(views.map((view) => view.refresh()));
+				return;
+			}
+
+			const result = await this.registry.refresh();
+			const suffix =
+				result.source === 'live' ? '' : ' (saved snapshot)';
+			new Notice(
+				`Task registry: ${result.snapshot.items.length} notes${suffix}`
+			);
+		} catch (error) {
+			new Notice(
+				error instanceof Error
+					? error.message
+					: 'Task registry refresh failed'
+			);
+		}
 	}
 
 	async loadSettings(): Promise<void> {

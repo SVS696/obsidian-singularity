@@ -104,6 +104,125 @@ export class SingularitySettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName('Task registry')
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName('Enable task registry')
+			.setDesc('Show the task registry ribbon button and load its saved snapshot')
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.registryEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.registryEnabled = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Registry title')
+			.setDesc('Title shown at the top of the registry view')
+			.addText((text) =>
+				text
+					.setPlaceholder('Task registry')
+					.setValue(this.plugin.settings.registryTitle)
+					.onChange(async (value) => {
+						this.plugin.settings.registryTitle = value || 'Task registry';
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Registry folders')
+			.setDesc(
+				'Comma-separated or newline-separated vault folders. Leave empty to scan all Markdown files.'
+			)
+			.addTextArea((text) =>
+				text
+					.setPlaceholder('Projects/Specifications')
+					.setValue(this.plugin.settings.registryFolders)
+					.onChange(async (value) => {
+						this.plugin.settings.registryFolders = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Source project')
+			.setDesc(
+				'Singularity project used while a document is being prepared'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('Documentation')
+					.setValue(this.plugin.settings.registrySourceProject)
+					.onChange(async (value) => {
+						this.plugin.settings.registrySourceProject = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Delivery projects')
+			.setDesc(
+				'Comma-separated Singularity projects used after publication or hand-off'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('Development, Delivery')
+					.setValue(this.plugin.settings.registryDeliveryProjects)
+					.onChange(async (value) => {
+						this.plugin.settings.registryDeliveryProjects = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('External link fields')
+			.setDesc(
+				'Frontmatter fields that confirm publication, for example redmine or jira'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('redmine, jira')
+					.setValue(this.plugin.settings.registryExternalLinkFields)
+					.onChange(async (value) => {
+						this.plugin.settings.registryExternalLinkFields = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Waiting tags')
+			.setDesc(
+				'Comma-separated Singularity tag names that put an item into Waiting'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('waiting, wait')
+					.setValue(this.plugin.settings.registryWaitingTags)
+					.onChange(async (value) => {
+						this.plugin.settings.registryWaitingTags = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName('Snapshot path')
+			.setDesc(
+				'Vault-relative JSON path for the AI-readable offline snapshot'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('.singularity/task-registry.json')
+					.setValue(this.plugin.settings.registrySnapshotPath)
+					.onChange(async (value) => {
+						this.plugin.settings.registrySnapshotPath = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
 			.setName('Commands')
 			.setHeading();
 
@@ -117,6 +236,12 @@ export class SingularitySettingTab extends PluginSettingTab {
 		});
 		commandList.createEl('li', {
 			text: 'Singularity: sync current note - sync link to task',
+		});
+		commandList.createEl('li', {
+			text: 'Singularity: open task registry - open the registry view',
+		});
+		commandList.createEl('li', {
+			text: 'Singularity: refresh task registry - refresh the persistent snapshot',
 		});
 	}
 

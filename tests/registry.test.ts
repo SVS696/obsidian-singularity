@@ -1,0 +1,328 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import type { SingularityAPI } from '../src/api/singularity';
+import { TaskCache } from '../src/cache/taskCache';
+import {
+	buildRegistryItems,
+	enrichTasks,
+	inferDocumentType,
+} from '../src/registry/model';
+import {
+	RegistrySnapshotStore,
+	type SnapshotAdapter,
+} from '../src/registry/snapshotStore';
+import { recoverMissingTasks } from '../src/registry/service';
+import type {
+	RegistryNoteSource,
+	RegistrySnapshot,
+} from '../src/registry/types';
+import type { TaskData } from '../src/types';
+
+function task(overrides: Partial<TaskData> = {}): TaskData {
+	return {
+		id: 'T-1',
+		title: 'Prepare specification',
+		projectId: 'P-source',
+		projectTitle: 'RTL',
+		status: {
+			id: 'KS-P-source-IN-PROGRESS',
+			name: 'В работе',
+		},
+		tags: [],
+		noteId: null,
+		deadline: null,
+		isCompleted: false,
+		isCancelled: false,
+		...overrides,
+	};
+}
+
+function note(overrides: Partial<RegistryNoteSource> = {}): RegistryNoteSource {
+	return {
+		path: 'projects/RTL/Постановки/spec.md',
+		title: 'Specification',
+		modifiedAt: '2026-07-24T10:00:00.000Z',
+		documentType: 'specification',
+		taskIds: ['T-1'],
+		externalLinks: [],
+		...overrides,
+	};
+}
+
+test('batch enrichment resolves project, status, tags, and deadline', () => {
+	const enriched = enrichTasks(
+		[
+			{
+				id: 'T-1',
+				title: 'Prepare specification',
+				note: null,
+				projectId: 'P-source',
+				tags: ['A-wait'],
+				checked: 0,
+				complete: 0,
+				state: 1,
+				priority: 1,
+				deadline: '2026-07-30',
+			},
+		],
+		[{ id: 'P-source', title: 'RTL', parent: null }],
+		[
+			{
+				id: 'KS-P-source-IN-PROGRESS',
+				name: 'В работе',
+				projectId: 'P-source',
+				kanbanOrder: 1,
+			},
+		],
+		[
+			{
+				taskId: 'T-1',
+				statusId: 'KS-P-source-IN-PROGRESS',
+			},
+		],
+		[{ id: 'A-wait', title: 'waiting', color: null, parent: null }],
+		'ru',
+		Date.parse('2026-07-24T12:00:00.000Z')
+	);
+
+	assert.equal(enriched[0].projectTitle, 'RTL');
+	assert.equal(enriched[0].status?.name, 'В работе');
+	assert.equal(enriched[0].tags[0].title, 'waiting');
+	assert.equal(enriched[0].deadline, '2026-07-30');
+	assert.equal(enriched[0].cacheUpdatedAt, '2026-07-24T12:00:00.000Z');
+});
+
+test('registry derives workflow stages and flags project/link conflicts', () => {
+	const items = buildRegistryItems(
+		[
+			note(),
+			note({
+				path: 'ready.md',
+				title: 'Ready',
+				taskIds: ['T-2'],
+			}),
+			note({
+				path: 'published.md',
+				title: 'Published',
+				taskIds: ['T-3'],
+				externalLinks: [
+					{ field: 'redmine', url: 'https://redmine.example/1' },
+				],
+			}),
+			note({
+				path: 'conflict.md',
+				title: 'Conflict',
+				taskIds: ['T-4'],
+				externalLinks: [
+					{ field: 'redmine', url: 'https://redmine.example/2' },
+				],
+			}),
+		],
+		[
+			task(),
+			task({
+				id: 'T-2',
+				status: { id: 'DONE', name: 'Готово' },
+				isCompleted: true,
+			}),
+			task({
+				id: 'T-3',
+				projectId: 'P-delivery',
+				projectTitle: 'Redmine',
+				status: { id: 'KS-P-delivery-IN-PROGRESS', name: 'В работе' },
+			}),
+			task({ id: 'T-4' }),
+		],
+		{
+			sourceProject: 'RTL',
+			deliveryProjects: ['Redmine'],
+			waitingTags: ['waiting'],
+		}
+	);
+
+	assert.equal(items[0].stage, 'drafting');
+	assert.equal(items[1].stage, 'ready');
+	assert.equal(items[2].stage, 'published');
+	assert.equal(items[3].stage, 'attention');
+	assert.match(items[3].conflicts[0], /External issue exists/);
+});
+
+test('notes that share a task are rendered as one entity', () => {
+	const items = buildRegistryItems(
+		[
+			note(),
+			note({
+				path: 'projects/RTL/Постановки/spec_вопросы.md',
+				title: 'Specification questions',
+				documentType: 'questions',
+			}),
+		],
+		[task()],
+		{
+			sourceProject: 'RTL',
+			deliveryProjects: ['Redmine'],
+			waitingTags: [],
+		}
+	);
+
+	assert.equal(items.length, 1);
+	assert.equal(items[0].notes.length, 2);
+	assert.equal(items[0].title, 'Specification');
+	assert.deepEqual(items[0].conflicts, []);
+});
+
+test('legacy question note is paired with one specification by filename', () => {
+	const items = buildRegistryItems(
+		[
+			note({
+				path: '2026-06-03 — Report (CRM) (14874).md',
+				title: '2026-06-03 — Report (CRM) (14874)',
+			}),
+			note({
+				path: '2026-06-03 — Report (CRM)_вопросы.md',
+				title: '2026-06-03 — Report (CRM)_вопросы',
+				documentType: 'questions',
+				taskIds: [],
+			}),
+		],
+		[task()],
+		{
+			sourceProject: 'RTL',
+			deliveryProjects: ['Redmine'],
+			waitingTags: [],
+		}
+	);
+
+	assert.equal(items.length, 1);
+	assert.equal(items[0].notes.length, 2);
+	assert.equal(items[0].title, '2026-06-03 — Report (CRM) (14874)');
+});
+
+test('document type inference keeps old notes out of a manual migration', () => {
+	assert.equal(
+		inferDocumentType('2026-07-22 — ДПУф_вопросы.md'),
+		'questions'
+	);
+	assert.equal(
+		inferDocumentType('2026-04-16 — Периоды — сверка реализации.md'),
+		'implementation-check'
+	);
+	assert.equal(
+		inferDocumentType('2026-05-07 — Импорт — анализ-сравнение.md'),
+		'research'
+	);
+});
+
+test('task cache returns the persistent value when the API is offline', async () => {
+	const offlineApi = {
+		getTask: async () => {
+			throw new Error('offline');
+		},
+	} as unknown as SingularityAPI;
+	const cache = new TaskCache(offlineApi, 0, 'en');
+	cache.putTaskData(task(), Date.now() - 1000);
+
+	const cached = await cache.getTaskData('T-1');
+	assert.equal(cached.title, 'Prepare specification');
+	assert.equal(cached.isStale, true);
+	assert.ok(cached.cacheUpdatedAt);
+});
+
+test('registry recovers only missing linked tasks with bounded concurrency', async () => {
+	const listedTask = {
+		id: 'T-1',
+		title: 'Listed',
+		note: null,
+		projectId: 'P-source',
+		tags: [],
+		checked: 0,
+		complete: 0,
+		state: 1,
+		priority: 1,
+		deadline: null,
+	};
+	const calls: string[] = [];
+	let active = 0;
+	let maxActive = 0;
+
+	const tasks = await recoverMissingTasks(
+		[listedTask],
+		['T-1', 'T-2', 'T-2', 'T-3', 'T-gone'],
+		async (taskId) => {
+			calls.push(taskId);
+			active += 1;
+			maxActive = Math.max(maxActive, active);
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			active -= 1;
+			if (taskId === 'T-gone') throw new Error('not found');
+			return { ...listedTask, id: taskId, title: taskId };
+		},
+		2
+	);
+
+	assert.deepEqual(calls.sort(), ['T-2', 'T-3', 'T-gone']);
+	assert.equal(maxActive, 2);
+	assert.deepEqual(
+		tasks.map((item) => item.id).sort(),
+		['T-1', 'T-2', 'T-3']
+	);
+});
+
+class MemoryAdapter implements SnapshotAdapter {
+	files = new Map<string, string>();
+	folders = new Set<string>();
+	failWrites = false;
+
+	async exists(path: string): Promise<boolean> {
+		return this.files.has(path) || this.folders.has(path);
+	}
+
+	async read(path: string): Promise<string> {
+		const value = this.files.get(path);
+		if (value === undefined) throw new Error('missing');
+		return value;
+	}
+
+	async write(path: string, data: string): Promise<void> {
+		if (this.failWrites) throw new Error('disk full');
+		this.files.set(path, data);
+	}
+
+	async mkdir(path: string): Promise<void> {
+		this.folders.add(path);
+	}
+}
+
+function snapshot(generatedAt: string): RegistrySnapshot {
+	return {
+		schemaVersion: 1,
+		generatedAt,
+		scope: {
+			folders: ['projects/RTL/Постановки'],
+			sourceProject: 'RTL',
+			deliveryProjects: ['Redmine'],
+			externalLinkFields: ['redmine'],
+		},
+		taskEntries: {},
+		items: [],
+	};
+}
+
+test('failed snapshot replacement preserves the last successful file', async () => {
+	const adapter = new MemoryAdapter();
+	const store = new RegistrySnapshotStore(
+		adapter,
+		'projects/RTL/.workday-control/singularity-snapshot.json'
+	);
+	const first = snapshot('2026-07-24T12:00:00.000Z');
+	await store.save(first);
+
+	adapter.failWrites = true;
+	await assert.rejects(
+		store.save(snapshot('2026-07-24T13:00:00.000Z')),
+		/disk full/
+	);
+
+	assert.deepEqual(await store.load(), first);
+	assert.ok(adapter.folders.has('projects/RTL/.workday-control'));
+});

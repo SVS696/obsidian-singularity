@@ -120,6 +120,16 @@
 	content: "⚠️ ";
 }
 
+/* Persistent snapshot fallback */
+.singularity-task-stale {
+	border-style: dashed;
+}
+
+.singularity-task-stale-indicator {
+	color: var(--text-muted);
+	font-size: 0.85em;
+}
+
 /* Completed state */
 .singularity-task-completed {
 	opacity: 0.8;
@@ -197,4 +207,279 @@
 /* Hide tags on mobile to save space */
 .is-mobile .singularity-task-tags-row {
 	display: none;
+}
+
+/* Task registry */
+.singularity-registry {
+	padding: 20px;
+	overflow: auto;
+}
+
+.singularity-registry-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+.singularity-registry-header h2 {
+	margin: 0;
+}
+
+.singularity-registry-freshness {
+	margin: 4px 0 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.singularity-registry-freshness.is-snapshot {
+	color: var(--text-warning);
+}
+
+.singularity-registry-refresh {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	width: auto;
+	padding: 6px 10px;
+}
+
+.singularity-registry-summary {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.singularity-registry-summary-card {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+	min-height: 64px;
+	padding: 10px 12px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	color: var(--text-normal);
+	text-align: left;
+}
+
+.singularity-registry-summary-card:hover {
+	border-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.singularity-registry-summary-count {
+	font-size: 1.35em;
+	font-weight: var(--font-semibold);
+	line-height: 1;
+}
+
+.singularity-registry-summary-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.singularity-registry-filters {
+	display: grid;
+	grid-template-columns: minmax(220px, 1fr) minmax(160px, 240px);
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.singularity-registry-filters input,
+.singularity-registry-filters select {
+	width: 100%;
+}
+
+.singularity-registry-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.singularity-registry-item {
+	display: grid;
+	grid-template-columns: minmax(220px, 1.25fr) minmax(240px, 1.5fr) minmax(100px, 0.5fr);
+	gap: 12px 16px;
+	padding: 12px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-left: 4px solid var(--interactive-accent);
+	border-radius: var(--radius-m);
+}
+
+.singularity-registry-item.stage-attention {
+	border-left-color: var(--text-error);
+}
+
+.singularity-registry-item.stage-waiting {
+	border-left-color: var(--text-warning);
+}
+
+.singularity-registry-item.stage-ready {
+	border-left-color: var(--color-green);
+}
+
+.singularity-registry-item.stage-archive {
+	opacity: 0.72;
+}
+
+.singularity-registry-item-primary,
+.singularity-registry-task-column,
+.singularity-registry-task {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	min-width: 0;
+}
+
+.singularity-registry-stage {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.singularity-registry-note-link,
+.singularity-registry-task-link,
+.singularity-registry-related-note-link {
+	height: auto;
+	padding: 0;
+	background: transparent;
+	box-shadow: none;
+	color: var(--link-color);
+	text-align: left;
+	white-space: normal;
+}
+
+.singularity-registry-note-link:hover,
+.singularity-registry-task-link:hover,
+.singularity-registry-related-note-link:hover {
+	background: transparent;
+	box-shadow: none;
+	color: var(--link-color-hover);
+	text-decoration: underline;
+}
+
+.singularity-registry-note-link {
+	color: var(--text-normal);
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+}
+
+.singularity-registry-related-notes {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: baseline;
+	gap: 2px 8px;
+	width: 100%;
+	margin-top: 4px;
+	padding-top: 6px;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.singularity-registry-related-note-link {
+	overflow: hidden;
+	font-size: var(--font-ui-smaller);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.singularity-registry-related-notes > span {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smallest);
+}
+
+.singularity-registry-document-type,
+.singularity-registry-task-state,
+.singularity-registry-muted {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.singularity-registry-task + .singularity-registry-task {
+	margin-top: 8px;
+}
+
+.singularity-registry-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.singularity-registry-tag {
+	padding: 1px 5px;
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smallest);
+}
+
+.singularity-registry-links {
+	display: flex;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	gap: 6px;
+}
+
+.singularity-registry-links a {
+	padding: 2px 6px;
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+}
+
+.singularity-registry-metadata {
+	grid-column: 1 / -1;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 14px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.singularity-registry-conflicts {
+	grid-column: 1 / -1;
+	margin: 0;
+	padding: 8px 8px 8px 28px;
+	background: rgba(var(--color-red-rgb), 0.08);
+	border-radius: var(--radius-s);
+	color: var(--text-error);
+	font-size: var(--font-ui-smaller);
+}
+
+.singularity-registry-empty {
+	padding: 24px;
+	color: var(--text-muted);
+	text-align: center;
+}
+
+@media (max-width: 900px) {
+	.singularity-registry-item {
+		grid-template-columns: 1fr;
+	}
+
+	.singularity-registry-metadata,
+	.singularity-registry-conflicts {
+		grid-column: 1;
+	}
+}
+
+@media (max-width: 520px) {
+	.singularity-registry {
+		padding: 12px;
+	}
+
+	.singularity-registry-header {
+		flex-direction: column;
+	}
+
+	.singularity-registry-filters {
+		grid-template-columns: 1fr;
+	}
 }

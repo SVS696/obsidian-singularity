@@ -27,6 +27,12 @@ export function createTaskBadge(taskData: TaskData, singularityUrl: string, lang
 	} else if (taskData.isCompleted) {
 		badge.classList.add('singularity-task-completed');
 	}
+	if (taskData.isStale) {
+		badge.classList.add('singularity-task-stale');
+		badge.title = taskData.cacheUpdatedAt
+			? `${locale.stale}: ${new Date(taskData.cacheUpdatedAt).toLocaleString()}`
+			: locale.stale;
+	}
 
 	badge.addEventListener('click', (e) => {
 		e.preventDefault();
@@ -57,6 +63,12 @@ export function createTaskBadge(taskData: TaskData, singularityUrl: string, lang
 		const statusEl = topRow.createSpan({ cls: 'singularity-task-status' });
 		statusEl.textContent = taskData.status.name;
 		statusEl.style.backgroundColor = getStatusColor(taskData.status.id);
+	}
+
+	if (taskData.isStale) {
+		const staleEl = topRow.createSpan({ cls: 'singularity-task-stale-indicator' });
+		staleEl.textContent = '◷';
+		staleEl.title = badge.title;
 	}
 
 	if (taskData.tags.length > 0) {
