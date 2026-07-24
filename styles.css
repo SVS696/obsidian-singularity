@@ -400,24 +400,43 @@
 }
 
 .singularity-registry-related-notes {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
-	align-items: baseline;
+	display: flex;
+	flex-direction: column;
 	gap: 2px 8px;
 	width: 100%;
+	min-width: 0;
 	margin-top: 4px;
 	padding-top: 6px;
 	border-top: 1px solid var(--background-modifier-border);
 }
 
-.singularity-registry-related-note-link {
-	overflow: hidden;
-	font-size: var(--font-ui-smaller);
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.singularity-registry-related-note {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: start;
+	gap: 8px;
+	width: 100%;
+	min-width: 0;
 }
 
-.singularity-registry-related-notes > span {
+.singularity-registry .singularity-registry-related-note-link {
+	display: block;
+	width: 100%;
+	min-width: 0;
+	height: auto;
+	padding: 0;
+	overflow: visible;
+	border: 0;
+	background: transparent;
+	box-shadow: none;
+	font-size: var(--font-ui-smaller);
+	overflow-wrap: anywhere;
+	text-align: left;
+	text-overflow: clip;
+	white-space: normal;
+}
+
+.singularity-registry-related-note > span {
 	color: var(--text-faint);
 	font-size: var(--font-ui-smallest);
 }
