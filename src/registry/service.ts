@@ -112,6 +112,8 @@ export class TaskRegistryService {
 				waitingTags: splitSetting(
 					this.plugin.settings.registryWaitingTags
 				),
+				triageAfterDays: this.plugin.settings.registryTriageAfterDays,
+				now: generatedAt.getTime(),
 			});
 
 			for (const task of taskData) {
@@ -126,6 +128,8 @@ export class TaskRegistryService {
 					sourceProject: this.plugin.settings.registrySourceProject,
 					deliveryProjects,
 					externalLinkFields: this.getExternalLinkFields(),
+					triageAfterDays:
+						this.plugin.settings.registryTriageAfterDays,
 				},
 				taskEntries: this.plugin.cache.exportTaskEntries(
 					Array.from(linkedTaskIds)

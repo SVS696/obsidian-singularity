@@ -122,6 +122,7 @@ export interface SingularityPluginSettings {
 	registryDeliveryProjects: string;
 	registryExternalLinkFields: string;
 	registryWaitingTags: string;
+	registryTriageAfterDays: number;
 	registrySnapshotPath: string;
 }
 
@@ -132,13 +133,14 @@ export const DEFAULT_SETTINGS: SingularityPluginSettings = {
 	cacheTTL: 5,
 	badgeMaxWidth: 300,
 	language: 'en',
-	registryEnabled: true,
+	registryEnabled: false,
 	registryTitle: 'Task registry',
 	registryFolders: '',
 	registrySourceProject: '',
 	registryDeliveryProjects: '',
 	registryExternalLinkFields: 'redmine',
 	registryWaitingTags: 'waiting,wait,жду,ждём,ожидание',
+	registryTriageAfterDays: 90,
 	registrySnapshotPath: '.singularity/task-registry.json',
 };
 

@@ -208,6 +208,22 @@ export class SingularitySettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName('Old item threshold (days)')
+			.setDesc(
+				'Unlinked notes older than this move to Triage old and stay out of the Active view'
+			)
+			.addSlider((slider) =>
+				slider
+					.setLimits(30, 365, 5)
+					.setValue(this.plugin.settings.registryTriageAfterDays)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.registryTriageAfterDays = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
 			.setName('Snapshot path')
 			.setDesc(
 				'Vault-relative JSON path for the AI-readable offline snapshot'

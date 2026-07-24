@@ -20,9 +20,11 @@ Integrates [Singularity App](https://singularity.app) task manager with Obsidian
 - Cancelled tasks: `✗` red indicator with "Cancelled" status
 
 ### Task Registry
+- **Opt-in and vault-specific**: Disabled by default; each user chooses the folders and workflow mapping for their own vault
 - **One view for a document workflow**: Combine Markdown notes, Singularity projects, kanban columns, tags, deadlines, and external issue links
 - **Entity grouping**: Notes that share a task or external issue are shown together; legacy question/check files can also attach to one unambiguous specification by filename
 - **Workflow stages**: See documents being prepared, ready to publish, published, waiting, under implementation review, or needing attention
+- **Quiet active view**: Move old unlinked notes into a separate triage stage after a configurable age threshold
 - **Consistency checks**: Detect when a task was handed to a delivery project but the external issue link is missing, or vice versa
 - **Batch refresh**: Load tasks, projects, statuses, mappings, and tags in paginated batches, then recover only referenced historical tasks omitted by the list endpoint
 - **Persistent snapshot**: Keep an AI-readable JSON snapshot in the vault and use it when the Singularity API is unavailable
@@ -51,12 +53,18 @@ npm run build
    - **Cache TTL**: How long to cache task data (default: 5 minutes)
    - **Badge Max Width**: Maximum width of task badges
    - **Auto Sync**: Enable/disable automatic sync of Obsidian URLs to Singularity
-   - **Registry Folders**: Limit the registry to selected vault folders
+   - **Enable Task Registry**: Opt in to the workflow dashboard (disabled by default)
+   - **Registry Folders**: Limit the registry to selected vault folders; leaving this empty scans all Markdown files after the registry is enabled
    - **Source Project**: Singularity project used while a document is being prepared
    - **Delivery Projects**: Projects used after publication or hand-off
    - **External Link Fields**: Frontmatter fields such as `redmine` or `jira`
    - **Waiting Tags**: Tags that move an item into the Waiting view
+   - **Old Item Threshold**: Age after which an unlinked note moves out of Active into Triage old
    - **Snapshot Path**: Vault-relative path for the persistent JSON snapshot
+
+Registry settings are stored only in the current vault's plugin data. The
+repository and release artifacts do not contain vault paths, project names,
+task IDs, or API credentials.
 
 ## Usage
 
