@@ -6,7 +6,10 @@ import {
 	setIcon,
 } from 'obsidian';
 import type SingularityPlugin from '../main';
-import { buildSingularityUrl } from '../types';
+import {
+	buildSingularityUrl,
+	type RegistryProfileSettings,
+} from '../types';
 import type {
 	RegistryItem,
 	RegistryResult,
@@ -46,6 +49,9 @@ const UI = {
 		modified: 'Изменено',
 		openNote: 'Открыть заметку',
 		openTask: 'Открыть задачу',
+		profile: 'Контур',
+		noProfiles:
+			'Нет включённых контуров реестра. Добавьте и включите контур в настройках плагина.',
 		stage: {
 			drafting: 'В работе в Obsidian',
 			ready: 'Готовы к публикации',
@@ -74,6 +80,9 @@ const UI = {
 		modified: 'Modified',
 		openNote: 'Open note',
 		openTask: 'Open task',
+		profile: 'Profile',
+		noProfiles:
+			'No registry profiles are enabled. Add and enable one in the plugin settings.',
 		stage: {
 			drafting: 'In preparation',
 			ready: 'Ready to publish',
@@ -93,7 +102,8 @@ export class TaskRegistryView extends ItemView {
 	private result: RegistryResult | null = null;
 	private query = '';
 	private stageFilter: StageFilter = 'active';
-	private refreshing = false;
+	private refreshingProfiles = new Set<string>();
+	private currentProfileId: string | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SingularityPlugin) {
 		super(leaf);
@@ -105,7 +115,8 @@ export class TaskRegistryView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return this.plugin.settings.registryTitle;
+		const profiles = this.plugin.registry.getProfiles();
+		return profiles.length === 1 ? profiles[0].name : 'Task registries';
 	}
 
 	getIcon(): string {
@@ -117,9 +128,71 @@ export class TaskRegistryView extends ItemView {
 			void this.refresh();
 		});
 
-		const snapshot =
-			this.plugin.registry.getSnapshot() ??
-			(await this.plugin.registry.loadSnapshot());
+		const profile = this.plugin.registry.getProfiles()[0];
+		this.currentProfileId = profile?.id ?? null;
+		if (profile) {
+			const snapshot =
+				this.plugin.registry.getSnapshot(profile.id) ??
+				(await this.plugin.registry.loadSnapshot(profile.id));
+			if (snapshot) {
+				this.result = { snapshot, source: 'snapshot' };
+			}
+		}
+		this.render();
+		if (profile) void this.refresh();
+	}
+
+	async refresh(): Promise<void> {
+		const profileId = this.currentProfileId;
+		if (!profileId || this.refreshingProfiles.has(profileId)) return;
+		this.refreshingProfiles.add(profileId);
+		this.render();
+
+		try {
+			const result = await this.plugin.registry.refresh(profileId);
+			if (this.currentProfileId !== profileId) return;
+			this.result = result;
+			if (result.source === 'snapshot') {
+				new Notice('Singularity is unavailable; using saved task data');
+			}
+		} catch (error) {
+			if (this.currentProfileId === profileId) {
+				new Notice(
+					error instanceof Error
+						? error.message
+						: 'Task registry refresh failed'
+				);
+			}
+		} finally {
+			this.refreshingProfiles.delete(profileId);
+			if (this.currentProfileId === profileId) {
+				this.render();
+			}
+		}
+	}
+
+	private async selectProfile(profileId: string): Promise<void> {
+		if (profileId === this.currentProfileId) return;
+		this.currentProfileId = profileId;
+		this.result = null;
+		this.query = '';
+		this.stageFilter = 'active';
+
+		let snapshot = this.plugin.registry.getSnapshot(profileId);
+		try {
+			snapshot ??= await this.plugin.registry.loadSnapshot(profileId);
+		} catch (error) {
+			if (this.currentProfileId === profileId) {
+				new Notice(
+					error instanceof Error
+						? error.message
+						: 'Task registry profile could not be loaded'
+				);
+				this.render();
+			}
+			return;
+		}
+		if (this.currentProfileId !== profileId) return;
 		if (snapshot) {
 			this.result = { snapshot, source: 'snapshot' };
 		}
@@ -127,39 +200,35 @@ export class TaskRegistryView extends ItemView {
 		void this.refresh();
 	}
 
-	async refresh(): Promise<void> {
-		if (this.refreshing) return;
-		this.refreshing = true;
-		this.render();
-
-		try {
-			this.result = await this.plugin.registry.refresh();
-			if (this.result.source === 'snapshot') {
-				new Notice('Singularity is unavailable; using saved task data');
-			}
-		} catch (error) {
-			new Notice(
-				error instanceof Error
-					? error.message
-					: 'Task registry refresh failed'
-			);
-		} finally {
-			this.refreshing = false;
-			this.render();
-		}
-	}
-
 	private render(): void {
 		const locale = UI[this.plugin.settings.language];
 		const container = this.contentEl;
 		container.empty();
 		container.addClass('singularity-registry');
+		const profiles = this.plugin.registry.getProfiles();
+		const profile =
+			profiles.find((item) => item.id === this.currentProfileId) ??
+			profiles[0] ??
+			null;
+
+		if (!profile) {
+			this.currentProfileId = null;
+			container.createEl('h2', { text: 'Task registries' });
+			container.createEl('p', {
+				cls: 'singularity-registry-empty',
+				text: locale.noProfiles,
+			});
+			return;
+		}
+		this.currentProfileId = profile.id;
+		const refreshing = this.refreshingProfiles.has(profile.id);
 
 		const header = container.createDiv({ cls: 'singularity-registry-header' });
 		const heading = header.createDiv();
 		heading.createEl('h2', {
-			text: this.plugin.settings.registryTitle,
+			text: profile.name,
 		});
+		this.renderProfilePicker(heading, profiles, profile, locale.profile);
 
 		if (this.result) {
 			const generatedAt = new Date(this.result.snapshot.generatedAt);
@@ -180,17 +249,17 @@ export class TaskRegistryView extends ItemView {
 				'aria-label': locale.refresh,
 			},
 		});
-		refreshButton.disabled = this.refreshing;
+		refreshButton.disabled = refreshing;
 		setIcon(refreshButton, 'refresh-cw');
 		refreshButton.createSpan({
-			text: this.refreshing ? locale.refreshing : locale.refresh,
+			text: refreshing ? locale.refreshing : locale.refresh,
 		});
 		refreshButton.addEventListener('click', () => void this.refresh());
 
 		if (!this.result) {
 			container.createEl('p', {
 				cls: 'singularity-registry-empty',
-				text: this.refreshing ? locale.refreshing : locale.noSnapshot,
+				text: refreshing ? locale.refreshing : locale.noSnapshot,
 			});
 			return;
 		}
@@ -198,6 +267,30 @@ export class TaskRegistryView extends ItemView {
 		this.renderSummary(container, this.result.snapshot.items);
 		this.renderFilters(container);
 		this.renderItems(container, this.filteredItems());
+	}
+
+	private renderProfilePicker(
+		container: HTMLElement,
+		profiles: RegistryProfileSettings[],
+		profile: RegistryProfileSettings,
+		label: string
+	): void {
+		if (profiles.length < 2) return;
+		const wrapper = container.createDiv({
+			cls: 'singularity-registry-profile-picker',
+		});
+		wrapper.createSpan({ text: label });
+		const select = wrapper.createEl('select');
+		for (const option of profiles) {
+			select.createEl('option', {
+				value: option.id,
+				text: option.name,
+			});
+		}
+		select.value = profile.id;
+		select.addEventListener('change', () => {
+			void this.selectProfile(select.value);
+		});
 	}
 
 	private renderSummary(container: HTMLElement, items: RegistryItem[]): void {
