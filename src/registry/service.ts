@@ -1,5 +1,5 @@
 import type SingularityPlugin from '../main';
-import type { SingularityTask } from '../types';
+import type { RegistryProfileSettings, SingularityTask } from '../types';
 import type { RegistryNoteSource, RegistryResult, RegistrySnapshot } from './types';
 import {
 	buildRegistryItems,
@@ -10,6 +10,10 @@ import {
 	splitSetting,
 } from './model';
 import { RegistrySnapshotStore } from './snapshotStore';
+import {
+	duplicateSnapshotProfile,
+	enabledRegistryProfiles,
+} from './profiles';
 
 /**
  * Singularity's task list can omit old or removed tasks even when include flags
@@ -51,29 +55,68 @@ export async function recoverMissingTasks(
 	return [...tasks, ...recovered];
 }
 
+export function pathMatchesRegistryFolders(
+	path: string,
+	folders: string[]
+): boolean {
+	if (folders.length === 0) return true;
+	return folders.some(
+		(folder) => path === folder || path.startsWith(`${folder}/`)
+	);
+}
+
 export class TaskRegistryService {
 	private plugin: SingularityPlugin;
-	private currentSnapshot: RegistrySnapshot | null = null;
+	private currentSnapshots = new Map<string, RegistrySnapshot>();
 
 	constructor(plugin: SingularityPlugin) {
 		this.plugin = plugin;
 	}
 
-	getSnapshot(): RegistrySnapshot | null {
-		return this.currentSnapshot;
+	getProfiles(): RegistryProfileSettings[] {
+		return enabledRegistryProfiles(this.plugin.settings);
 	}
 
-	async loadSnapshot(): Promise<RegistrySnapshot | null> {
-		const snapshot = await this.getStore().load();
+	getProfile(profileId: string): RegistryProfileSettings | null {
+		return (
+			this.plugin.settings.registryProfiles.find(
+				(profile) => profile.id === profileId
+			) ?? null
+		);
+	}
+
+	getSnapshot(profileId: string): RegistrySnapshot | null {
+		return this.currentSnapshots.get(profileId) ?? null;
+	}
+
+	async loadSnapshot(profileId: string): Promise<RegistrySnapshot | null> {
+		const profile = this.requireProfile(profileId);
+		const snapshot = await this.getStore(profile).load();
 		if (snapshot) {
-			this.currentSnapshot = snapshot;
+			this.currentSnapshots.set(profile.id, snapshot);
 			this.plugin.cache.hydrateTaskEntries(snapshot.taskEntries);
 		}
 		return snapshot;
 	}
 
-	async refresh(): Promise<RegistryResult> {
-		const notes = this.collectNotes();
+	async loadAllSnapshots(): Promise<void> {
+		await Promise.all(
+			this.getProfiles().map(async (profile) => {
+				try {
+					await this.loadSnapshot(profile.id);
+				} catch (error) {
+					console.warn(
+						`[Singularity] Failed to load registry profile ${profile.id}:`,
+						error
+					);
+				}
+			})
+		);
+	}
+
+	async refresh(profileId: string): Promise<RegistryResult> {
+		const profile = this.requireProfile(profileId);
+		const notes = this.collectNotes(profile);
 		const linkedTaskIds = new Set(
 			notes.flatMap((note) => note.taskIds)
 		);
@@ -103,16 +146,12 @@ export class TaskRegistryService {
 				this.plugin.settings.language,
 				generatedAt.getTime()
 			);
-			const deliveryProjects = splitSetting(
-				this.plugin.settings.registryDeliveryProjects
-			);
+			const deliveryProjects = splitSetting(profile.deliveryProjects);
 			const items = buildRegistryItems(notes, taskData, {
-				sourceProject: this.plugin.settings.registrySourceProject,
+				sourceProject: profile.sourceProject,
 				deliveryProjects,
-				waitingTags: splitSetting(
-					this.plugin.settings.registryWaitingTags
-				),
-				triageAfterDays: this.plugin.settings.registryTriageAfterDays,
+				waitingTags: splitSetting(profile.waitingTags),
+				triageAfterDays: profile.triageAfterDays,
 				now: generatedAt.getTime(),
 			});
 
@@ -124,12 +163,13 @@ export class TaskRegistryService {
 				schemaVersion: 1,
 				generatedAt: generatedAt.toISOString(),
 				scope: {
-					folders: this.getFolders(),
-					sourceProject: this.plugin.settings.registrySourceProject,
+					profileId: profile.id,
+					profileName: profile.name,
+					folders: this.getFolders(profile),
+					sourceProject: profile.sourceProject,
 					deliveryProjects,
-					externalLinkFields: this.getExternalLinkFields(),
-					triageAfterDays:
-						this.plugin.settings.registryTriageAfterDays,
+					externalLinkFields: this.getExternalLinkFields(profile),
+					triageAfterDays: profile.triageAfterDays,
 				},
 				taskEntries: this.plugin.cache.exportTaskEntries(
 					Array.from(linkedTaskIds)
@@ -138,11 +178,13 @@ export class TaskRegistryService {
 			};
 
 			// A failed write must not replace the last successful snapshot.
-			await this.getStore().save(snapshot);
-			this.currentSnapshot = snapshot;
+			await this.getStore(profile).save(snapshot);
+			this.currentSnapshots.set(profile.id, snapshot);
 			return { snapshot, source: 'live' };
 		} catch (error) {
-			const snapshot = this.currentSnapshot ?? (await this.loadSnapshot());
+			const snapshot =
+				this.currentSnapshots.get(profile.id) ??
+				(await this.loadSnapshot(profile.id));
 			if (!snapshot) {
 				throw error;
 			}
@@ -154,35 +196,50 @@ export class TaskRegistryService {
 		}
 	}
 
-	private getStore(): RegistrySnapshotStore {
+	private requireProfile(profileId: string): RegistryProfileSettings {
+		const profile = this.getProfile(profileId);
+		if (!profile || !profile.enabled || !this.plugin.settings.registryEnabled) {
+			throw new Error(`Task registry profile is unavailable: ${profileId}`);
+		}
+		if (!profile.snapshotPath.trim()) {
+			throw new Error(
+				`Task registry profile "${profile.name}" has no snapshot path`
+			);
+		}
+		const duplicate = duplicateSnapshotProfile(
+			profile,
+			this.plugin.settings.registryProfiles
+		);
+		if (duplicate) {
+			throw new Error(
+				`Task registry profiles "${profile.name}" and "${duplicate.name}" use the same snapshot path`
+			);
+		}
+		return profile;
+	}
+
+	private getStore(profile: RegistryProfileSettings): RegistrySnapshotStore {
 		return new RegistrySnapshotStore(
 			this.plugin.app.vault.adapter,
-			this.plugin.settings.registrySnapshotPath
+			profile.snapshotPath
 		);
 	}
 
-	private getFolders(): string[] {
-		return splitSetting(this.plugin.settings.registryFolders).map((folder) =>
+	private getFolders(profile: RegistryProfileSettings): string[] {
+		return splitSetting(profile.folders).map((folder) =>
 			folder.replace(/^\/+|\/+$/g, '')
 		);
 	}
 
-	private getExternalLinkFields(): string[] {
-		const fields = splitSetting(
-			this.plugin.settings.registryExternalLinkFields
-		);
-		return fields.length > 0 ? fields : ['redmine'];
+	private getExternalLinkFields(profile: RegistryProfileSettings): string[] {
+		return splitSetting(profile.externalLinkFields);
 	}
 
-	private collectNotes(): RegistryNoteSource[] {
-		const folders = this.getFolders();
-		const externalLinkFields = this.getExternalLinkFields();
+	private collectNotes(profile: RegistryProfileSettings): RegistryNoteSource[] {
+		const folders = this.getFolders(profile);
+		const externalLinkFields = this.getExternalLinkFields(profile);
 		const files = this.plugin.app.vault.getMarkdownFiles().filter((file) => {
-			if (folders.length === 0) return true;
-			return folders.some(
-				(folder) =>
-					file.path === folder || file.path.startsWith(`${folder}/`)
-			);
+			return pathMatchesRegistryFolders(file.path, folders);
 		});
 
 		return files.map((file) => {

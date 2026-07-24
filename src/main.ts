@@ -8,6 +8,10 @@ import { registerLivePreview } from './renderer/livePreview';
 import { ObsidianLinkSync } from './sync/obsidianLink';
 import { TaskRegistryService } from './registry/service';
 import {
+	enabledRegistryProfiles,
+	migrateRegistryProfiles,
+} from './registry/profiles';
+import {
 	TASK_REGISTRY_VIEW_TYPE,
 	TaskRegistryView,
 } from './registry/view';
@@ -106,7 +110,10 @@ export default class SingularityPlugin extends Plugin {
 			},
 		});
 
-		if (this.settings.registryEnabled) {
+		if (
+			this.settings.registryEnabled &&
+			enabledRegistryProfiles(this.settings).length > 0
+		) {
 			this.addRibbonIcon(
 				'list-checks',
 				'Open Singularity task registry',
@@ -114,7 +121,7 @@ export default class SingularityPlugin extends Plugin {
 					void this.activateTaskRegistry();
 				}
 			);
-			void this.registry.loadSnapshot();
+			void this.registry.loadAllSnapshots();
 		}
 
 		// Preload tags on startup
@@ -155,11 +162,25 @@ export default class SingularityPlugin extends Plugin {
 				return;
 			}
 
-			const result = await this.registry.refresh();
+			const profiles = this.registry.getProfiles();
+			if (profiles.length === 0) {
+				new Notice('No enabled task registry profiles');
+				return;
+			}
+
+			let itemCount = 0;
+			let savedSnapshots = 0;
+			for (const profile of profiles) {
+				const result = await this.registry.refresh(profile.id);
+				itemCount += result.snapshot.items.length;
+				if (result.source === 'snapshot') savedSnapshots += 1;
+			}
 			const suffix =
-				result.source === 'live' ? '' : ' (saved snapshot)';
+				savedSnapshots > 0
+					? ` · ${savedSnapshots} saved snapshot(s)`
+					: '';
 			new Notice(
-				`Task registry: ${result.snapshot.items.length} notes${suffix}`
+				`Task registries: ${profiles.length} profile(s), ${itemCount} notes${suffix}`
 			);
 		} catch (error) {
 			new Notice(
@@ -172,7 +193,18 @@ export default class SingularityPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		const data = (await this.loadData()) as Partial<SingularityPluginSettings> | null;
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
+		const stored = data ?? {};
+		const profiles = migrateRegistryProfiles(stored);
+		this.settings = {
+			...DEFAULT_SETTINGS,
+			...stored,
+			registryProfiles: profiles,
+		};
+
+		// Persist the lossless 1.2.x migration once so profile IDs stay stable.
+		if (!Array.isArray(stored.registryProfiles) && profiles.length > 0) {
+			await this.saveData(this.settings);
+		}
 	}
 
 	async saveSettings(): Promise<void> {

@@ -8,19 +8,146 @@ import {
 	inferDocumentType,
 } from '../src/registry/model';
 import {
+	duplicateSnapshotProfile,
+	enabledRegistryProfiles,
+	migrateRegistryProfiles,
+} from '../src/registry/profiles';
+import {
 	RegistrySnapshotStore,
 	type SnapshotAdapter,
 } from '../src/registry/snapshotStore';
-import { recoverMissingTasks } from '../src/registry/service';
+import {
+	pathMatchesRegistryFolders,
+	recoverMissingTasks,
+} from '../src/registry/service';
 import type {
 	RegistryNoteSource,
 	RegistrySnapshot,
 } from '../src/registry/types';
-import { DEFAULT_SETTINGS, type TaskData } from '../src/types';
+import {
+	DEFAULT_SETTINGS,
+	type SingularityPluginSettings,
+	type TaskData,
+} from '../src/types';
 
 test('registry is opt-in for new vaults', () => {
 	assert.equal(DEFAULT_SETTINGS.registryEnabled, false);
-	assert.equal(DEFAULT_SETTINGS.registryFolders, '');
+	assert.deepEqual(DEFAULT_SETTINGS.registryProfiles, []);
+});
+
+test('legacy single registry migrates into an independent profile', () => {
+	const profiles = migrateRegistryProfiles({
+		registryEnabled: true,
+		registryTitle: 'RTL — Контроль постановок',
+		registryFolders: 'projects/RTL/Постановки',
+		registrySourceProject: 'RTL',
+		registryDeliveryProjects: 'Redmine',
+		registryExternalLinkFields: 'redmine',
+		registryWaitingTags: 'Ожидание',
+		registryTriageAfterDays: 90,
+		registrySnapshotPath:
+			'projects/RTL/.workday-control/singularity-snapshot.json',
+	});
+
+	assert.equal(profiles.length, 1);
+	assert.equal(profiles[0].id, 'legacy-default');
+	assert.equal(profiles[0].name, 'RTL — Контроль постановок');
+	assert.equal(profiles[0].folders, 'projects/RTL/Постановки');
+	assert.equal(
+		profiles[0].snapshotPath,
+		'projects/RTL/.workday-control/singularity-snapshot.json'
+	);
+});
+
+test('profiles stay independent inside one vault', () => {
+	const profiles = migrateRegistryProfiles({
+		registryProfiles: [
+			{
+				id: 'rtl',
+				name: 'RTL',
+				enabled: true,
+				folders: 'projects/RTL/Постановки',
+				sourceProject: 'RTL',
+				deliveryProjects: 'Redmine',
+				externalLinkFields: 'redmine',
+				waitingTags: 'Ожидание',
+				triageAfterDays: 90,
+				snapshotPath: 'projects/RTL/.workday-control/registry.json',
+			},
+			{
+				id: 'haeze',
+				name: 'HÆZE',
+				enabled: true,
+				folders: 'projects/HÆZE/Specifications',
+				sourceProject: 'HÆZE',
+				deliveryProjects: 'Delivery',
+				externalLinkFields: 'jira',
+				waitingTags: 'waiting',
+				triageAfterDays: 45,
+				snapshotPath: 'projects/HÆZE/.workday-control/registry.json',
+			},
+		],
+	});
+	const settings = {
+		...DEFAULT_SETTINGS,
+		registryEnabled: true,
+		registryProfiles: profiles,
+	} satisfies SingularityPluginSettings;
+
+	assert.deepEqual(
+		enabledRegistryProfiles(settings).map((profile) => profile.id),
+		['rtl', 'haeze']
+	);
+	assert.notEqual(profiles[0].folders, profiles[1].folders);
+	assert.notEqual(profiles[0].snapshotPath, profiles[1].snapshotPath);
+	assert.equal(duplicateSnapshotProfile(profiles[0], profiles), null);
+	assert.equal(
+		pathMatchesRegistryFolders(
+			'projects/RTL/Постановки/spec.md',
+			['projects/RTL/Постановки']
+		),
+		true
+	);
+	assert.equal(
+		pathMatchesRegistryFolders(
+			'projects/HÆZE/Specifications/spec.md',
+			['projects/RTL/Постановки']
+		),
+		false
+	);
+});
+
+test('profiles cannot silently overwrite the same AI snapshot', () => {
+	const profiles = migrateRegistryProfiles({
+		registryProfiles: [
+			{
+				id: 'first',
+				name: 'First',
+				enabled: true,
+				folders: 'projects/First',
+				sourceProject: '',
+				deliveryProjects: '',
+				externalLinkFields: '',
+				waitingTags: '',
+				triageAfterDays: 90,
+				snapshotPath: 'projects/shared/registry.json',
+			},
+			{
+				id: 'second',
+				name: 'Second',
+				enabled: true,
+				folders: 'projects/Second',
+				sourceProject: '',
+				deliveryProjects: '',
+				externalLinkFields: '',
+				waitingTags: '',
+				triageAfterDays: 90,
+				snapshotPath: '/Projects/Shared/Registry.json/',
+			},
+		],
+	});
+
+	assert.equal(duplicateSnapshotProfile(profiles[0], profiles)?.id, 'second');
 });
 
 function task(overrides: Partial<TaskData> = {}): TaskData {
@@ -255,6 +382,11 @@ test('document type inference keeps old notes out of a manual migration', () => 
 		inferDocumentType('2026-05-07 — Импорт — анализ-сравнение.md'),
 		'research'
 	);
+	assert.equal(
+		inferDocumentType('Catalog implementation review.md'),
+		'implementation-check'
+	);
+	assert.equal(inferDocumentType('Catalog questions.md'), 'questions');
 });
 
 test('task cache returns the persistent value when the API is offline', async () => {

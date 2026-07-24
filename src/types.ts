@@ -106,6 +106,25 @@ export interface CacheEntry<T> {
 export type Language = 'ru' | 'en';
 
 /**
+ * One independent task registry inside a vault.
+ *
+ * Profiles deliberately keep vault paths and workflow mappings in plugin
+ * settings instead of the published plugin bundle.
+ */
+export interface RegistryProfileSettings {
+	id: string;
+	name: string;
+	enabled: boolean;
+	folders: string;
+	sourceProject: string;
+	deliveryProjects: string;
+	externalLinkFields: string;
+	waitingTags: string;
+	triageAfterDays: number;
+	snapshotPath: string;
+}
+
+/**
  * Plugin settings
  */
 export interface SingularityPluginSettings {
@@ -116,6 +135,11 @@ export interface SingularityPluginSettings {
 	badgeMaxWidth: number; // pixels
 	language: Language;
 	registryEnabled: boolean;
+	registryProfiles: RegistryProfileSettings[];
+	/**
+	 * Legacy single-registry fields kept for a lossless migration from 1.2.x.
+	 * Runtime registry code uses registryProfiles only.
+	 */
 	registryTitle: string;
 	registryFolders: string;
 	registrySourceProject: string;
@@ -134,6 +158,7 @@ export const DEFAULT_SETTINGS: SingularityPluginSettings = {
 	badgeMaxWidth: 300,
 	language: 'en',
 	registryEnabled: false,
+	registryProfiles: [],
 	registryTitle: 'Task registry',
 	registryFolders: '',
 	registrySourceProject: '',

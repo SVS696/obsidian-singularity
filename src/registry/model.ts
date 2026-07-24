@@ -48,30 +48,46 @@ export function inferDocumentType(
 	}
 
 	const name = path.normalize('NFKC').toLowerCase();
-	if (name.includes('_вопрос') || name.includes(' вопросы')) {
+	if (
+		name.includes('_вопрос') ||
+		name.includes(' вопросы') ||
+		name.includes('_question') ||
+		name.includes(' questions')
+	) {
 		return 'questions';
 	}
 	if (
 		name.includes('сверка реализации') ||
-		name.includes('проверка реализации')
+		name.includes('проверка реализации') ||
+		name.includes('implementation check') ||
+		name.includes('implementation review')
 	) {
 		return 'implementation-check';
 	}
 	if (
 		name.includes('анализ') ||
 		name.includes('исследован') ||
-		name.includes('разбор')
+		name.includes('разбор') ||
+		name.includes('analysis') ||
+		name.includes('research')
 	) {
 		return 'research';
 	}
 	if (
 		name.includes('исходные данные') ||
 		name.includes('выгрузка') ||
-		name.includes('датасет')
+		name.includes('датасет') ||
+		name.includes('source data') ||
+		name.includes('dataset')
 	) {
 		return 'source-data';
 	}
-	if (name.includes('встреч') || name.includes('созвон')) {
+	if (
+		name.includes('встреч') ||
+		name.includes('созвон') ||
+		name.includes('meeting') ||
+		name.includes('call notes')
+	) {
 		return 'meeting-output';
 	}
 	return 'specification';
@@ -404,7 +420,7 @@ function companionTitleKey(note: RegistryNoteSource): string | null {
 
 	const key = normalize(note.title)
 		.replace(
-			/(?:[_\s—-]+)(?:вопрос(?:ы|ам)?|сверка реализации|проверка реализации)\s*$/,
+			/(?:[_\s—-]+)(?:вопрос(?:ы|ам)?|сверка реализации|проверка реализации|questions?|implementation (?:check|review))\s*$/,
 			''
 		)
 		.replace(/\s*\(\d{3,}\)\s*$/, '')

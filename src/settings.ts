@@ -1,6 +1,10 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type SingularityPlugin from './main';
-import type { SingularityPluginSettings } from './types';
+import type {
+	RegistryProfileSettings,
+	SingularityPluginSettings,
+} from './types';
+import { createRegistryProfile } from './registry/profiles';
 
 export class SingularitySettingTab extends PluginSettingTab {
 	plugin: SingularityPlugin;
@@ -103,140 +107,7 @@ export class SingularitySettingTab extends PluginSettingTab {
 					})
 			);
 
-		new Setting(containerEl)
-			.setName('Task registry')
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName('Enable task registry')
-			.setDesc('Show the task registry ribbon button and load its saved snapshot')
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.registryEnabled)
-					.onChange(async (value) => {
-						this.plugin.settings.registryEnabled = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Registry title')
-			.setDesc('Title shown at the top of the registry view')
-			.addText((text) =>
-				text
-					.setPlaceholder('Task registry')
-					.setValue(this.plugin.settings.registryTitle)
-					.onChange(async (value) => {
-						this.plugin.settings.registryTitle = value || 'Task registry';
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Registry folders')
-			.setDesc(
-				'Comma-separated or newline-separated vault folders. Leave empty to scan all Markdown files.'
-			)
-			.addTextArea((text) =>
-				text
-					.setPlaceholder('Projects/Specifications')
-					.setValue(this.plugin.settings.registryFolders)
-					.onChange(async (value) => {
-						this.plugin.settings.registryFolders = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Source project')
-			.setDesc(
-				'Singularity project used while a document is being prepared'
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder('Documentation')
-					.setValue(this.plugin.settings.registrySourceProject)
-					.onChange(async (value) => {
-						this.plugin.settings.registrySourceProject = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Delivery projects')
-			.setDesc(
-				'Comma-separated Singularity projects used after publication or hand-off'
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder('Development, Delivery')
-					.setValue(this.plugin.settings.registryDeliveryProjects)
-					.onChange(async (value) => {
-						this.plugin.settings.registryDeliveryProjects = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('External link fields')
-			.setDesc(
-				'Frontmatter fields that confirm publication, for example redmine or jira'
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder('redmine, jira')
-					.setValue(this.plugin.settings.registryExternalLinkFields)
-					.onChange(async (value) => {
-						this.plugin.settings.registryExternalLinkFields = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Waiting tags')
-			.setDesc(
-				'Comma-separated Singularity tag names that put an item into Waiting'
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder('waiting, wait')
-					.setValue(this.plugin.settings.registryWaitingTags)
-					.onChange(async (value) => {
-						this.plugin.settings.registryWaitingTags = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Old item threshold (days)')
-			.setDesc(
-				'Unlinked notes older than this move to Triage old and stay out of the Active view'
-			)
-			.addSlider((slider) =>
-				slider
-					.setLimits(30, 365, 5)
-					.setValue(this.plugin.settings.registryTriageAfterDays)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings.registryTriageAfterDays = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName('Snapshot path')
-			.setDesc(
-				'Vault-relative JSON path for the AI-readable offline snapshot'
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder('.singularity/task-registry.json')
-					.setValue(this.plugin.settings.registrySnapshotPath)
-					.onChange(async (value) => {
-						this.plugin.settings.registrySnapshotPath = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		this.renderRegistrySettings(containerEl);
 
 		new Setting(containerEl)
 			.setName('Commands')
@@ -259,6 +130,226 @@ export class SingularitySettingTab extends PluginSettingTab {
 		commandList.createEl('li', {
 			text: 'Singularity: refresh task registry - refresh the persistent snapshot',
 		});
+	}
+
+	private renderRegistrySettings(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName('Task registries')
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName('Enable task registries')
+			.setDesc(
+				'Enable the registry ribbon and independent workflow profiles. Reload Obsidian after changing this switch.'
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.registryEnabled)
+					.onChange(async (value) => {
+						this.plugin.settings.registryEnabled = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		if (this.plugin.settings.registryProfiles.length === 0) {
+			containerEl.createEl('p', {
+				cls: 'setting-item-description',
+				text: 'No registry profiles yet. Add one for each independent folder workflow in this vault.',
+			});
+		}
+
+		for (const profile of this.plugin.settings.registryProfiles) {
+			this.renderRegistryProfile(containerEl, profile);
+		}
+
+		new Setting(containerEl)
+			.setName('Add registry profile')
+			.setDesc(
+				'Create another independent dashboard with its own folders, workflow mapping, and snapshot.'
+			)
+			.addButton((button) =>
+				button
+					.setButtonText('Add profile')
+					.setCta()
+					.onClick(async () => {
+						const profiles = this.plugin.settings.registryProfiles;
+						const profile = createRegistryProfile(
+							{ name: `Task registry ${profiles.length + 1}` },
+							profiles.map((item) => item.id)
+						);
+						profiles.push(profile);
+						this.plugin.settings.registryEnabled = true;
+						await this.plugin.saveSettings();
+						this.display();
+					})
+			);
+	}
+
+	private renderRegistryProfile(
+		containerEl: HTMLElement,
+		profile: RegistryProfileSettings
+	): void {
+		const card = containerEl.createDiv({
+			cls: 'singularity-registry-profile-settings',
+		});
+		card.createEl('h4', { text: profile.name });
+
+		new Setting(card)
+			.setName('Profile name')
+			.setDesc('Shown in the registry profile switcher')
+			.addText((text) =>
+				text
+					.setPlaceholder('Project specifications')
+					.setValue(profile.name)
+					.onChange(async (value) => {
+						profile.name = value.trim() || 'Task registry';
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('Enabled')
+			.setDesc('Include this profile in the registry switcher')
+			.addToggle((toggle) =>
+				toggle.setValue(profile.enabled).onChange(async (value) => {
+					profile.enabled = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(card)
+			.setName('Folders')
+			.setDesc(
+				'Comma-separated or newline-separated vault folders. Empty scans all Markdown files for this profile.'
+			)
+			.addTextArea((text) =>
+				text
+					.setPlaceholder('projects/My Project/Specifications')
+					.setValue(profile.folders)
+					.onChange(async (value) => {
+						profile.folders = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('Source project')
+			.setDesc(
+				'Singularity project used while a document is being prepared'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('Documentation')
+					.setValue(profile.sourceProject)
+					.onChange(async (value) => {
+						profile.sourceProject = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('Delivery projects')
+			.setDesc(
+				'Comma-separated Singularity projects used after publication or hand-off'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('Development, Delivery')
+					.setValue(profile.deliveryProjects)
+					.onChange(async (value) => {
+						profile.deliveryProjects = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('External link fields')
+			.setDesc(
+				'Frontmatter fields that confirm publication, for example redmine or jira'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('redmine, jira')
+					.setValue(profile.externalLinkFields)
+					.onChange(async (value) => {
+						profile.externalLinkFields = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('Waiting tags')
+			.setDesc(
+				'Comma-separated Singularity tag names that put an item into Waiting'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('waiting, wait')
+					.setValue(profile.waitingTags)
+					.onChange(async (value) => {
+						profile.waitingTags = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('Old item threshold (days)')
+			.setDesc(
+				'Unlinked notes older than this move to Triage old in this profile'
+			)
+			.addSlider((slider) =>
+				slider
+					.setLimits(30, 365, 5)
+					.setValue(profile.triageAfterDays)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						profile.triageAfterDays = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('Snapshot path')
+			.setDesc(
+				'Vault-relative JSON path unique to this profile'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder(
+						`.singularity/task-registry-${profile.id}.json`
+					)
+					.setValue(profile.snapshotPath)
+					.onChange(async (value) => {
+						profile.snapshotPath = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('Remove profile')
+			.setDesc(
+				'Remove this configuration only. Existing snapshot files are not deleted.'
+			)
+			.addButton((button) =>
+				button
+					.setButtonText('Remove')
+					.setWarning()
+					.onClick(async () => {
+						if (
+							!window.confirm(
+								`Remove registry profile "${profile.name}"?`
+							)
+						) {
+							return;
+						}
+						this.plugin.settings.registryProfiles =
+							this.plugin.settings.registryProfiles.filter(
+								(item) => item.id !== profile.id
+							);
+						await this.plugin.saveSettings();
+						this.display();
+					})
+			);
 	}
 
 	/**

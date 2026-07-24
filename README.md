@@ -21,6 +21,7 @@ Integrates [Singularity App](https://singularity.app) task manager with Obsidian
 
 ### Task Registry
 - **Opt-in and vault-specific**: Disabled by default; each user chooses the folders and workflow mapping for their own vault
+- **Independent profiles**: Run separate registries for multiple project folders inside one large vault, each with its own rules and AI-readable snapshot
 - **One view for a document workflow**: Combine Markdown notes, Singularity projects, kanban columns, tags, deadlines, and external issue links
 - **Entity grouping**: Notes that share a task or external issue are shown together; legacy question/check files can also attach to one unambiguous specification by filename
 - **Workflow stages**: See documents being prepared, ready to publish, published, waiting, under implementation review, or needing attention
@@ -54,17 +55,21 @@ npm run build
    - **Badge Max Width**: Maximum width of task badges
    - **Auto Sync**: Enable/disable automatic sync of Obsidian URLs to Singularity
    - **Enable Task Registry**: Opt in to the workflow dashboard (disabled by default)
-   - **Registry Folders**: Limit the registry to selected vault folders; leaving this empty scans all Markdown files after the registry is enabled
-   - **Source Project**: Singularity project used while a document is being prepared
+   - Add one **Registry Profile** for each independent folder workflow in the vault
+   - **Folders**: Limit that profile to selected vault folders; leaving this empty scans all Markdown files for that profile
+   - **Source Project**: Singularity project used while documents in that profile are being prepared
    - **Delivery Projects**: Projects used after publication or hand-off
    - **External Link Fields**: Frontmatter fields such as `redmine` or `jira`
    - **Waiting Tags**: Tags that move an item into the Waiting view
    - **Old Item Threshold**: Age after which an unlinked note moves out of Active into Triage old
-   - **Snapshot Path**: Vault-relative path for the persistent JSON snapshot
+   - **Snapshot Path**: A unique vault-relative JSON path for the profile
 
 Registry settings are stored only in the current vault's plugin data. The
 repository and release artifacts do not contain vault paths, project names,
 task IDs, or API credentials.
+
+Existing single-registry settings from 1.2.x are migrated automatically into
+one profile without changing its folder scope or snapshot path.
 
 ## Usage
 
@@ -110,11 +115,11 @@ All referenced tasks will have links back to this Obsidian note.
 - **Refresh cache**: Clear cached task data and reload
 - **Sync current note**: Manually sync the current note's URL to Singularity
 - **Open task registry**: Open the registry view
-- **Refresh task registry**: Refresh all registry data and the persistent snapshot
+- **Refresh task registry**: Refresh enabled registry profiles and their persistent snapshots
 
 ## Persistent Snapshot
 
-The registry writes a sanitized JSON file that contains task metadata, note
+Each registry profile writes a sanitized JSON file that contains task metadata, note
 paths, workflow stages, deadlines, tags, and configured external links. It does
 not contain the Singularity API token.
 

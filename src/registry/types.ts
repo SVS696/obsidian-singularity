@@ -60,6 +60,8 @@ export interface RegistrySnapshot {
 	schemaVersion: 1;
 	generatedAt: string;
 	scope: {
+		profileId?: string;
+		profileName?: string;
 		folders: string[];
 		sourceProject: string;
 		deliveryProjects: string[];
