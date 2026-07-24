@@ -451,7 +451,10 @@ export class TaskRegistryView extends ItemView {
 				for (const note of item.notes.filter(
 					(note) => note.path !== item.path
 				)) {
-					const relatedButton = relatedNotes.createEl('button', {
+					const relatedNote = relatedNotes.createDiv({
+						cls: 'singularity-registry-related-note',
+					});
+					const relatedButton = relatedNote.createEl('button', {
 						cls: 'singularity-registry-related-note-link',
 						text: note.title,
 						attr: { type: 'button', title: locale.openNote },
@@ -459,7 +462,7 @@ export class TaskRegistryView extends ItemView {
 					relatedButton.addEventListener('click', () => {
 						void this.openNote(note.path);
 					});
-					relatedNotes.createSpan({
+					relatedNote.createSpan({
 						text: note.documentType,
 					});
 				}
