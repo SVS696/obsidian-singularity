@@ -10,6 +10,8 @@ const DEFAULT_PROFILE: Omit<RegistryProfileSettings, 'id' | 'name'> = {
 	deliveryProjects: '',
 	externalLinkFields: 'redmine, jira',
 	waitingTags: 'waiting, wait',
+	companionPrefixes: 'вопрос, вопросы, вопросам, question, questions',
+	companionSuffixes: 'вопрос, вопросы, вопросам, question, questions',
 	triageAfterDays: 90,
 	snapshotPath: '',
 };
@@ -50,6 +52,10 @@ export function createRegistryProfile(
 		...overrides,
 		id,
 		name: overrides.name?.trim() || 'Task registry',
+		companionPrefixes:
+			overrides.companionPrefixes ?? DEFAULT_PROFILE.companionPrefixes,
+		companionSuffixes:
+			overrides.companionSuffixes ?? DEFAULT_PROFILE.companionSuffixes,
 		snapshotPath:
 			overrides.snapshotPath?.trim() ||
 			`.singularity/task-registry-${id}.json`,
@@ -96,6 +102,8 @@ export function migrateRegistryProfiles(
 							externalLinkFields:
 								data.registryExternalLinkFields || 'redmine, jira',
 							waitingTags: data.registryWaitingTags || 'waiting, wait',
+							companionPrefixes: DEFAULT_PROFILE.companionPrefixes,
+							companionSuffixes: DEFAULT_PROFILE.companionSuffixes,
 							triageAfterDays:
 								data.registryTriageAfterDays ??
 								DEFAULT_PROFILE.triageAfterDays,

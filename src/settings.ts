@@ -293,6 +293,36 @@ export class SingularitySettingTab extends PluginSettingTab {
 			);
 
 		new Setting(card)
+			.setName('Related note prefixes')
+			.setDesc(
+				'Comma-separated filename prefixes for supplementary notes. These notes appear as sublinks instead of separate documents.'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('questions, appendix')
+					.setValue(profile.companionPrefixes)
+					.onChange(async (value) => {
+						profile.companionPrefixes = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
+			.setName('Related note suffixes')
+			.setDesc(
+				'Comma-separated filename suffixes for supplementary notes. Separators such as spaces, dashes, and underscores are optional.'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('questions, appendix')
+					.setValue(profile.companionSuffixes)
+					.onChange(async (value) => {
+						profile.companionSuffixes = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(card)
 			.setName('Old item threshold (days)')
 			.setDesc(
 				'Unlinked notes older than this move to Triage old in this profile'

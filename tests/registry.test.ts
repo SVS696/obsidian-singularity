@@ -234,6 +234,11 @@ test('registry derives workflow stages and flags project/link conflicts', () => 
 				taskIds: ['T-2'],
 			}),
 			note({
+				path: 'completed.md',
+				title: 'Completed',
+				taskIds: ['T-5'],
+			}),
+			note({
 				path: 'published.md',
 				title: 'Published',
 				taskIds: ['T-3'],
@@ -254,7 +259,12 @@ test('registry derives workflow stages and flags project/link conflicts', () => 
 			task(),
 			task({
 				id: 'T-2',
-				status: { id: 'DONE', name: 'Готово' },
+				status: { id: 'KS-P-source-DONE', name: 'Готово' },
+				isCompleted: false,
+			}),
+			task({
+				id: 'T-5',
+				status: { id: 'DONE', name: 'Завершено' },
 				isCompleted: true,
 			}),
 			task({
@@ -276,9 +286,10 @@ test('registry derives workflow stages and flags project/link conflicts', () => 
 
 	assert.equal(items[0].stage, 'drafting');
 	assert.equal(items[1].stage, 'ready');
-	assert.equal(items[2].stage, 'published');
-	assert.equal(items[3].stage, 'attention');
-	assert.match(items[3].conflicts[0], /External issue exists/);
+	assert.equal(items[2].stage, 'archive');
+	assert.equal(items[3].stage, 'published');
+	assert.equal(items[4].stage, 'attention');
+	assert.match(items[4].conflicts[0], /External issue exists/);
 });
 
 test('notes that share a task are rendered as one entity', () => {
@@ -336,6 +347,39 @@ test('legacy question note is paired with one specification by filename', () => 
 	assert.equal(items[0].title, '2026-06-03 — Report (CRM) (14874)');
 });
 
+test('an unmatched questions note is a sublink of its external issue card', () => {
+	const items = buildRegistryItems(
+		[
+			note({
+				path: '2026-07-22 — Feature (16020)_вопросы.md',
+				title: '2026-07-22 — Feature (16020)_вопросы',
+				documentType: 'questions',
+				taskIds: [],
+				externalLinks: [
+					{
+						field: 'redmine',
+						url: 'https://redmine.example/issues/16020',
+					},
+				],
+			}),
+		],
+		[],
+		{
+			sourceProject: 'RTL',
+			deliveryProjects: ['Redmine'],
+			waitingTags: [],
+			triageAfterDays: 90,
+			now: Date.parse('2026-07-24T12:00:00.000Z'),
+		}
+	);
+
+	assert.equal(items.length, 1);
+	assert.equal(items[0].title, '2026-07-22 — Feature (16020)');
+	assert.equal(items[0].stage, 'published');
+	assert.equal(items[0].companionOnly, true);
+	assert.equal(items[0].notes[0].documentType, 'questions');
+});
+
 test('old unlinked notes move out of attention into triage', () => {
 	const items = buildRegistryItems(
 		[
@@ -387,6 +431,56 @@ test('document type inference keeps old notes out of a manual migration', () => 
 		'implementation-check'
 	);
 	assert.equal(inferDocumentType('Catalog questions.md'), 'questions');
+});
+
+test('each profile can use its own related note prefixes and suffixes', () => {
+	assert.equal(
+		inferDocumentType(
+			'Appendix — Billing.md',
+			undefined,
+			['appendix'],
+			[]
+		),
+		'questions'
+	);
+	assert.equal(
+		inferDocumentType(
+			'Billing_follow-up.md',
+			undefined,
+			[],
+			['follow-up']
+		),
+		'questions'
+	);
+	assert.equal(
+		inferDocumentType('Billing_follow-up.md', undefined, [], ['questions']),
+		'specification'
+	);
+
+	const items = buildRegistryItems(
+		[
+			note({
+				path: 'Appendix — Billing.md',
+				title: 'Appendix — Billing',
+				documentType: 'questions',
+				taskIds: [],
+				externalLinks: [
+					{ field: 'jira', url: 'https://jira.example/BILL-1' },
+				],
+			}),
+		],
+		[],
+		{
+			sourceProject: 'Docs',
+			deliveryProjects: ['Delivery'],
+			waitingTags: [],
+			companionPrefixes: ['appendix'],
+			companionSuffixes: [],
+			triageAfterDays: 90,
+		}
+	);
+	assert.equal(items[0].title, 'Billing');
+	assert.equal(items[0].companionOnly, true);
 });
 
 test('task cache returns the persistent value when the API is offline', async () => {

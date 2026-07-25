@@ -147,10 +147,14 @@ export class TaskRegistryService {
 				generatedAt.getTime()
 			);
 			const deliveryProjects = splitSetting(profile.deliveryProjects);
+			const companionPrefixes = splitSetting(profile.companionPrefixes);
+			const companionSuffixes = splitSetting(profile.companionSuffixes);
 			const items = buildRegistryItems(notes, taskData, {
 				sourceProject: profile.sourceProject,
 				deliveryProjects,
 				waitingTags: splitSetting(profile.waitingTags),
+				companionPrefixes,
+				companionSuffixes,
 				triageAfterDays: profile.triageAfterDays,
 				now: generatedAt.getTime(),
 			});
@@ -169,6 +173,8 @@ export class TaskRegistryService {
 					sourceProject: profile.sourceProject,
 					deliveryProjects,
 					externalLinkFields: this.getExternalLinkFields(profile),
+					companionPrefixes,
+					companionSuffixes,
 					triageAfterDays: profile.triageAfterDays,
 				},
 				taskEntries: this.plugin.cache.exportTaskEntries(
@@ -238,6 +244,8 @@ export class TaskRegistryService {
 	private collectNotes(profile: RegistryProfileSettings): RegistryNoteSource[] {
 		const folders = this.getFolders(profile);
 		const externalLinkFields = this.getExternalLinkFields(profile);
+		const companionPrefixes = splitSetting(profile.companionPrefixes);
+		const companionSuffixes = splitSetting(profile.companionSuffixes);
 		const files = this.plugin.app.vault.getMarkdownFiles().filter((file) => {
 			return pathMatchesRegistryFolders(file.path, folders);
 		});
@@ -251,7 +259,9 @@ export class TaskRegistryService {
 				modifiedAt: new Date(file.stat.mtime).toISOString(),
 				documentType: inferDocumentType(
 					file.path,
-					frontmatter.document_type
+					frontmatter.document_type,
+					companionPrefixes,
+					companionSuffixes
 				),
 				taskIds: extractTaskIds(frontmatter),
 				externalLinks: extractExternalLinks(

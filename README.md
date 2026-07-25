@@ -61,6 +61,7 @@ npm run build
    - **Delivery Projects**: Projects used after publication or hand-off
    - **External Link Fields**: Frontmatter fields such as `redmine` or `jira`
    - **Waiting Tags**: Tags that move an item into the Waiting view
+   - **Related Note Prefixes / Suffixes**: Per-profile filename markers for supplementary notes rendered as sublinks instead of independent documents
    - **Old Item Threshold**: Age after which an unlinked note moves out of Active into Triage old
    - **Snapshot Path**: A unique vault-relative JSON path for the profile
 

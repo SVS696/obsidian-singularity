@@ -40,6 +40,7 @@ export interface RegistryItem {
 	title: string;
 	modifiedAt: string;
 	documentType: RegistryDocumentType;
+	companionOnly?: boolean;
 	notes: RegistryNoteSource[];
 	taskIds: string[];
 	tasks: TaskData[];
@@ -52,6 +53,8 @@ export interface RegistryModelConfig {
 	sourceProject: string;
 	deliveryProjects: string[];
 	waitingTags: string[];
+	companionPrefixes?: string[];
+	companionSuffixes?: string[];
 	triageAfterDays: number;
 	now?: number;
 }
@@ -66,6 +69,8 @@ export interface RegistrySnapshot {
 		sourceProject: string;
 		deliveryProjects: string[];
 		externalLinkFields: string[];
+		companionPrefixes?: string[];
+		companionSuffixes?: string[];
 		triageAfterDays?: number;
 	};
 	taskEntries: Record<string, CacheEntry<TaskData>>;
