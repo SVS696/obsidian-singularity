@@ -432,20 +432,15 @@ export class TaskRegistryView extends ItemView {
 				cls: 'singularity-registry-stage',
 				text: locale.stage[item.stage],
 			});
-			if (item.companionOnly) {
-				primary.createSpan({
-					cls: 'singularity-registry-note-title',
-					text: item.title,
-				});
-			} else {
-				const noteButton = primary.createEl('button', {
-					cls: 'singularity-registry-note-link',
-					text: item.title,
-					attr: { type: 'button', title: locale.openNote },
-				});
-				noteButton.addEventListener('click', () => {
-					void this.openNote(item.path);
-				});
+			const noteButton = primary.createEl('button', {
+				cls: 'singularity-registry-note-link',
+				text: item.title,
+				attr: { type: 'button', title: locale.openNote },
+			});
+			noteButton.addEventListener('click', () => {
+				void this.openNote(item.path);
+			});
+			if (!item.companionOnly) {
 				primary.createSpan({
 					cls: 'singularity-registry-document-type',
 					text: item.documentType,
