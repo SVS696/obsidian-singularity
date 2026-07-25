@@ -399,6 +399,13 @@
 	font-weight: var(--font-semibold);
 }
 
+.singularity-registry-note-title {
+	color: var(--text-normal);
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+	overflow-wrap: anywhere;
+}
+
 .singularity-registry-related-notes {
 	display: flex;
 	flex-direction: column;

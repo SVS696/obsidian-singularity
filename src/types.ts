@@ -120,6 +120,8 @@ export interface RegistryProfileSettings {
 	deliveryProjects: string;
 	externalLinkFields: string;
 	waitingTags: string;
+	companionPrefixes: string;
+	companionSuffixes: string;
 	triageAfterDays: number;
 	snapshotPath: string;
 }

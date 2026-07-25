@@ -19,6 +19,56 @@ import type {
 
 const TASK_URL_PATTERN =
 	/singularityapp:\/\/\?&page=any&id=(T-[a-f0-9-]+)/gi;
+const DEFAULT_COMPANION_PREFIXES = [
+	'вопрос',
+	'вопросы',
+	'вопросам',
+	'question',
+	'questions',
+];
+const DEFAULT_COMPANION_SUFFIXES = [
+	'вопрос',
+	'вопросы',
+	'вопросам',
+	'question',
+	'questions',
+];
+const COMPANION_SEPARATOR = '[\\s_—–-]+';
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripCompanionMarker(
+	value: string,
+	prefixes: string[],
+	suffixes: string[]
+): string | null {
+	const normalized = value.normalize('NFKC').trim();
+	for (const marker of prefixes) {
+		const cleanMarker = marker.normalize('NFKC').trim();
+		if (!cleanMarker) continue;
+		const pattern = new RegExp(
+			`^${escapeRegExp(cleanMarker)}(?:${COMPANION_SEPARATOR}|$)`,
+			'iu'
+		);
+		if (pattern.test(normalized)) {
+			return normalized.replace(pattern, '').trim();
+		}
+	}
+	for (const marker of suffixes) {
+		const cleanMarker = marker.normalize('NFKC').trim();
+		if (!cleanMarker) continue;
+		const pattern = new RegExp(
+			`(?:${COMPANION_SEPARATOR}|^)${escapeRegExp(cleanMarker)}$`,
+			'iu'
+		);
+		if (pattern.test(normalized)) {
+			return normalized.replace(pattern, '').trim();
+		}
+	}
+	return null;
+}
 
 export function splitSetting(value: string): string[] {
 	return value
@@ -29,7 +79,9 @@ export function splitSetting(value: string): string[] {
 
 export function inferDocumentType(
 	path: string,
-	frontmatterType?: unknown
+	frontmatterType?: unknown,
+	companionPrefixes = DEFAULT_COMPANION_PREFIXES,
+	companionSuffixes = DEFAULT_COMPANION_SUFFIXES
 ): RegistryDocumentType {
 	if (typeof frontmatterType === 'string') {
 		const explicit = frontmatterType.trim().toLowerCase();
@@ -47,13 +99,11 @@ export function inferDocumentType(
 		}
 	}
 
-	const name = path.normalize('NFKC').toLowerCase();
-	if (
-		name.includes('_вопрос') ||
-		name.includes(' вопросы') ||
-		name.includes('_question') ||
-		name.includes(' questions')
-	) {
+	const name = (path.split('/').pop() ?? path)
+		.replace(/\.md$/i, '')
+		.normalize('NFKC')
+		.toLowerCase();
+	if (stripCompanionMarker(name, companionPrefixes, companionSuffixes) !== null) {
 		return 'questions';
 	}
 	if (
@@ -268,6 +318,12 @@ function classifyStage(
 	if (conflicts.length > 0) {
 		return 'attention';
 	}
+	if (
+		tasks.length > 0 &&
+		tasks.every((task) => task.isCompleted || task.isCancelled)
+	) {
+		return 'archive';
+	}
 	if (note.documentType === 'implementation-check') {
 		return 'implementation-check';
 	}
@@ -284,6 +340,9 @@ function classifyStage(
 		deliveryProjects.has(normalize(task.projectTitle ?? ''))
 	);
 
+	if (deliveryTask || note.externalLinks.length > 0) {
+		return 'published';
+	}
 	if (sourceTask) {
 		const kind = statusKind(sourceTask);
 		if (kind === 'done') return 'ready';
@@ -291,12 +350,6 @@ function classifyStage(
 		if (kind === 'todo') return 'planned';
 	}
 
-	if (deliveryTask?.isCompleted || deliveryTask?.isCancelled) {
-		return 'archive';
-	}
-	if (deliveryTask || note.externalLinks.length > 0) {
-		return 'published';
-	}
 	if (tasks.some((task) => task.isCompleted || task.isCancelled)) {
 		return 'archive';
 	}
@@ -315,80 +368,87 @@ export function buildRegistryItems(
 	const sourceProject = normalize(config.sourceProject);
 	const deliveryProjects = new Set(config.deliveryProjects.map(normalize));
 
-	return groupRelatedNotes(notes).map((relatedNotes) => {
-		const primary = choosePrimaryNote(relatedNotes);
-		const taskIds = Array.from(
-			new Set(relatedNotes.flatMap((note) => note.taskIds))
-		);
-		const externalLinks = Array.from(
-			new Map(
-				relatedNotes
-					.flatMap((note) => note.externalLinks)
-					.map((link) => [`${link.field}\n${link.url}`, link])
-			).values()
-		);
-		const documentType = relatedNotes.some(
-			(note) => note.documentType === 'implementation-check'
-		)
-			? 'implementation-check'
-			: primary.documentType;
-		const modificationDates = relatedNotes
-			.map((note) => note.modifiedAt)
-			.sort();
-		const mergedNote: RegistryNoteSource = {
-			...primary,
-			modifiedAt:
-				modificationDates[modificationDates.length - 1] ??
-				primary.modifiedAt,
-			documentType,
-			taskIds,
-			externalLinks,
-		};
-		const tasks = taskIds
-			.map((taskId) => tasksById.get(taskId))
-			.filter((task): task is TaskData => Boolean(task));
-		const conflicts: string[] = [];
-		const hasExternalLink = externalLinks.length > 0;
+	return groupRelatedNotes(notes, config)
+		.map((relatedNotes) => {
+			const primary = choosePrimaryNote(relatedNotes);
+			const companionOnly = relatedNotes.every(
+				(note) => note.documentType === 'questions'
+			);
+			const taskIds = Array.from(
+				new Set(relatedNotes.flatMap((note) => note.taskIds))
+			);
+			const externalLinks = Array.from(
+				new Map(
+					relatedNotes
+						.flatMap((note) => note.externalLinks)
+						.map((link) => [`${link.field}\n${link.url}`, link])
+				).values()
+			);
+			const documentType = relatedNotes.some(
+				(note) => note.documentType === 'implementation-check'
+			)
+				? 'implementation-check'
+				: primary.documentType;
+			const modificationDates = relatedNotes
+				.map((note) => note.modifiedAt)
+				.sort();
+			const mergedNote: RegistryNoteSource = {
+				...primary,
+				modifiedAt:
+					modificationDates[modificationDates.length - 1] ??
+					primary.modifiedAt,
+				documentType,
+				taskIds,
+				externalLinks,
+			};
+			const tasks = taskIds
+				.map((taskId) => tasksById.get(taskId))
+				.filter((task): task is TaskData => Boolean(task));
+			const conflicts: string[] = [];
+			const hasExternalLink = externalLinks.length > 0;
 
-		for (const taskId of taskIds) {
-			if (!tasksById.has(taskId)) {
-				conflicts.push(`Task ${taskId} was not returned by Singularity`);
+			for (const taskId of taskIds) {
+				if (!tasksById.has(taskId)) {
+					conflicts.push(`Task ${taskId} was not returned by Singularity`);
+				}
 			}
-		}
 
-		const hasSourceTask = tasks.some(
-			(task) => normalize(task.projectTitle ?? '') === sourceProject
-		);
-		const hasDeliveryTask = tasks.some((task) =>
-			deliveryProjects.has(normalize(task.projectTitle ?? ''))
-		);
-
-		if (hasExternalLink && hasSourceTask && !hasDeliveryTask) {
-			conflicts.push(
-				'External issue exists, but the Singularity task is still in the source project'
+			const hasSourceTask = tasks.some(
+				(task) => normalize(task.projectTitle ?? '') === sourceProject
 			);
-		}
-		if (!hasExternalLink && hasDeliveryTask) {
-			conflicts.push(
-				'Singularity task is in a delivery project, but the external issue link is missing'
+			const hasDeliveryTask = tasks.some((task) =>
+				deliveryProjects.has(normalize(task.projectTitle ?? ''))
 			);
-		}
 
-		const uniqueConflicts = Array.from(new Set(conflicts));
-		return {
-			id: taskIds[0] ?? externalLinks[0]?.url ?? primary.path,
-			path: primary.path,
-			title: primary.title,
-			modifiedAt: mergedNote.modifiedAt,
-			documentType,
-			notes: relatedNotes,
-			taskIds,
-			tasks,
-			externalLinks,
-			stage: classifyStage(mergedNote, tasks, uniqueConflicts, config),
-			conflicts: uniqueConflicts,
-		};
-	});
+			if (hasExternalLink && hasSourceTask && !hasDeliveryTask) {
+				conflicts.push(
+					'External issue exists, but the Singularity task is still in the source project'
+				);
+			}
+			if (!hasExternalLink && hasDeliveryTask) {
+				conflicts.push(
+					'Singularity task is in a delivery project, but the external issue link is missing'
+				);
+			}
+
+			const uniqueConflicts = Array.from(new Set(conflicts));
+			return {
+				id: taskIds[0] ?? externalLinks[0]?.url ?? primary.path,
+				path: primary.path,
+				title: companionOnly
+					? companionDisplayTitle(primary, config)
+					: primary.title,
+				modifiedAt: mergedNote.modifiedAt,
+				documentType,
+				companionOnly,
+				notes: relatedNotes,
+				taskIds,
+				tasks,
+				externalLinks,
+				stage: classifyStage(mergedNote, tasks, uniqueConflicts, config),
+				conflicts: uniqueConflicts,
+			};
+		});
 }
 
 function choosePrimaryNote(notes: RegistryNoteSource[]): RegistryNoteSource {
@@ -409,7 +469,10 @@ function choosePrimaryNote(notes: RegistryNoteSource[]): RegistryNoteSource {
 	})[0];
 }
 
-function companionTitleKey(note: RegistryNoteSource): string | null {
+function companionTitleKey(
+	note: RegistryNoteSource,
+	config: RegistryModelConfig
+): string | null {
 	if (
 		note.documentType !== 'specification' &&
 		note.documentType !== 'questions' &&
@@ -418,9 +481,15 @@ function companionTitleKey(note: RegistryNoteSource): string | null {
 		return null;
 	}
 
-	const key = normalize(note.title)
+	const prefixes = config.companionPrefixes ?? DEFAULT_COMPANION_PREFIXES;
+	const suffixes = config.companionSuffixes ?? DEFAULT_COMPANION_SUFFIXES;
+	const companionStripped =
+		note.documentType === 'questions'
+			? stripCompanionMarker(note.title, prefixes, suffixes)
+			: null;
+	const key = normalize(companionStripped ?? note.title)
 		.replace(
-			/(?:[_\s—-]+)(?:вопрос(?:ы|ам)?|сверка реализации|проверка реализации|questions?|implementation (?:check|review))\s*$/,
+			/(?:[_\s—-]+)(?:сверка реализации|проверка реализации|implementation (?:check|review))\s*$/,
 			''
 		)
 		.replace(/\s*\(\d{3,}\)\s*$/, '')
@@ -428,7 +497,21 @@ function companionTitleKey(note: RegistryNoteSource): string | null {
 	return key || null;
 }
 
-function groupRelatedNotes(notes: RegistryNoteSource[]): RegistryNoteSource[][] {
+function companionDisplayTitle(
+	note: RegistryNoteSource,
+	config: RegistryModelConfig
+): string {
+	const prefixes = config.companionPrefixes ?? DEFAULT_COMPANION_PREFIXES;
+	const suffixes = config.companionSuffixes ?? DEFAULT_COMPANION_SUFFIXES;
+	return (
+		stripCompanionMarker(note.title, prefixes, suffixes) ?? note.title
+	);
+}
+
+function groupRelatedNotes(
+	notes: RegistryNoteSource[],
+	config: RegistryModelConfig
+): RegistryNoteSource[][] {
 	const parents = notes.map((_, index) => index);
 	const find = (index: number): number => {
 		let root = index;
@@ -469,7 +552,7 @@ function groupRelatedNotes(notes: RegistryNoteSource[]): RegistryNoteSource[][] 
 	const specificationsByTitle = new Map<string, number[]>();
 	notes.forEach((note, index) => {
 		if (note.documentType !== 'specification') return;
-		const key = companionTitleKey(note);
+		const key = companionTitleKey(note, config);
 		if (!key) return;
 		const matches = specificationsByTitle.get(key) ?? [];
 		matches.push(index);
@@ -482,7 +565,7 @@ function groupRelatedNotes(notes: RegistryNoteSource[]): RegistryNoteSource[][] 
 		) {
 			return;
 		}
-		const key = companionTitleKey(note);
+		const key = companionTitleKey(note, config);
 		if (!key) return;
 		const matches = specificationsByTitle.get(key) ?? [];
 		if (matches.length === 1) {
