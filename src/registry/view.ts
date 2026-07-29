@@ -104,6 +104,7 @@ export class TaskRegistryView extends ItemView {
 	private stageFilter: StageFilter = 'active';
 	private refreshingProfiles = new Set<string>();
 	private currentProfileId: string | null = null;
+	private itemsContainer: HTMLElement | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SingularityPlugin) {
 		super(leaf);
@@ -203,6 +204,7 @@ export class TaskRegistryView extends ItemView {
 	private render(): void {
 		const locale = UI[this.plugin.settings.language];
 		const container = this.contentEl;
+		this.itemsContainer = null;
 		container.empty();
 		container.addClass('singularity-registry');
 		const profiles = this.plugin.registry.getProfiles();
@@ -266,7 +268,10 @@ export class TaskRegistryView extends ItemView {
 
 		this.renderSummary(container, this.result.snapshot.items);
 		this.renderFilters(container);
-		this.renderItems(container, this.filteredItems());
+		this.itemsContainer = container.createDiv({
+			cls: 'singularity-registry-results',
+		});
+		this.renderFilteredItems();
 	}
 
 	private renderProfilePicker(
@@ -332,7 +337,7 @@ export class TaskRegistryView extends ItemView {
 		});
 		search.addEventListener('input', () => {
 			this.query = search.value;
-			this.render();
+			this.renderFilteredItems();
 		});
 
 		const select = filters.createEl('select');
@@ -353,8 +358,14 @@ export class TaskRegistryView extends ItemView {
 		select.value = this.stageFilter;
 		select.addEventListener('change', () => {
 			this.stageFilter = select.value as StageFilter;
-			this.render();
+			this.renderFilteredItems();
 		});
+	}
+
+	private renderFilteredItems(): void {
+		if (!this.itemsContainer) return;
+		this.itemsContainer.empty();
+		this.renderItems(this.itemsContainer, this.filteredItems());
 	}
 
 	private filteredItems(): RegistryItem[] {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import type { SingularityAPI } from '../src/api/singularity';
 import { TaskCache } from '../src/cache/taskCache';
@@ -595,4 +596,15 @@ test('failed snapshot replacement preserves the last successful file', async () 
 
 	assert.deepEqual(await store.load(), first);
 	assert.ok(adapter.folders.has('projects/RTL/.workday-control'));
+});
+
+test('registry search updates results without rebuilding its focused input', () => {
+	const source = readFileSync('src/registry/view.ts', 'utf8');
+	const handler = source.match(
+		/search\.addEventListener\('input', \(\) => \{([\s\S]*?)\n\t\t\}\);/
+	);
+
+	assert.ok(handler, 'search input handler must exist');
+	assert.match(handler[1], /this\.renderFilteredItems\(\)/);
+	assert.doesNotMatch(handler[1], /this\.render\(\)/);
 });
