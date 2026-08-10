@@ -8,6 +8,7 @@ import type {
 	TaskKanbanStatus,
 	DeltaOp,
 } from '../types';
+import { parseTaskNoteOps } from '../sync/noteContent';
 
 const API_BASE_URL = 'https://api.singularity-app.com';
 
@@ -193,6 +194,13 @@ export class SingularityAPI {
 		} catch {
 			return [];
 		}
+	}
+
+	/**
+	 * Parse the task.note mirror without losing legacy plain text.
+	 */
+	parseTaskNoteContent(content: string): DeltaOp[] {
+		return parseTaskNoteOps(content);
 	}
 
 	/**

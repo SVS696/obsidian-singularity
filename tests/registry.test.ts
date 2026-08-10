@@ -21,6 +21,7 @@ import {
 	pathMatchesRegistryFolders,
 	recoverMissingTasks,
 } from '../src/registry/service';
+import { parseTaskNoteOps } from '../src/sync/noteContent';
 import type {
 	RegistryNoteSource,
 	RegistrySnapshot,
@@ -30,6 +31,38 @@ import {
 	type SingularityPluginSettings,
 	type TaskData,
 } from '../src/types';
+
+test('task note parser keeps serialized Delta intact', () => {
+	const ops = parseTaskNoteOps(
+		'[{"insert":"Redmine","attributes":{"link":"https://example"}},{"insert":"\\n"}]'
+	);
+
+	assert.deepEqual(ops, [
+		{ insert: 'Redmine', attributes: { link: 'https://example' } },
+		{ insert: '\n' },
+	]);
+});
+
+test('task note parser migrates Markdown links without losing prose', () => {
+	const ops = parseTaskNoteOps(
+		'[Redmine](https://example/1) | [Obsidian](obsidian://open?vault=SVS)\nPlan'
+	);
+
+	assert.deepEqual(ops, [
+		{ insert: 'Redmine', attributes: { link: 'https://example/1' } },
+		{ insert: ' | ' },
+		{ insert: 'Obsidian', attributes: { link: 'obsidian://open?vault=SVS' } },
+		{ insert: '\nPlan' },
+		{ insert: '\n' },
+	]);
+});
+
+test('task note parser preserves legacy plain text', () => {
+	assert.deepEqual(parseTaskNoteOps('Plan item'), [
+		{ insert: 'Plan item' },
+		{ insert: '\n' },
+	]);
+});
 
 test('registry is opt-in for new vaults', () => {
 	assert.equal(DEFAULT_SETTINGS.registryEnabled, false);

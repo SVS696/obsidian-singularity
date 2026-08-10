@@ -76,6 +76,14 @@ export default class SingularityPlugin extends Plugin {
 			})
 		);
 
+		// Opening a linked note repairs missed background syncs. The normal
+		// publication workflow still writes links immediately without this event.
+		this.registerEvent(
+			this.app.workspace.on('file-open', (file) => {
+				this.sync.onFileOpened(file);
+			})
+		);
+
 		// Add commands
 		this.addCommand({
 			id: 'refresh-cache',

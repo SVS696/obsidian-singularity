@@ -78,6 +78,17 @@ export class ObsidianLinkSync {
 	}
 
 	/**
+	 * Handle file open event as a repair fallback.
+	 */
+	onFileOpened(file: TFile | null): void {
+		if (!file || !this.plugin.settings.autoSync || file.extension !== 'md') {
+			return;
+		}
+
+		this.syncDebounced(file);
+	}
+
+	/**
 	 * Sync Obsidian URL to all Singularity tasks found in frontmatter
 	 * Scans ALL frontmatter fields for singularityapp:// URLs
 	 */
@@ -247,8 +258,9 @@ export class ObsidianLinkSync {
 		let deltaOps;
 
 		if (task.note) {
-			const note = await api.getNote(task.note);
-			const currentOps = api.parseNoteContent(note.content);
+			const currentOps = task.note.startsWith('N-')
+				? api.parseNoteContent((await api.getNote(task.note)).content)
+				: api.parseTaskNoteContent(task.note);
 
 			const existingById = api.findObsidianLinkById(currentOps, singularityId);
 			if (existingById) {
